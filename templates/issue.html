@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>{{ cfg.name }} {{ cn_date[0] }}{{ cn_date[1] }}</title>
+<style>
+@font-face { font-family: "SongTi"; src: url("{{ fonts }}/NotoSerifSC[wght].ttf"); font-weight: 200 900; }
+@font-face { font-family: "HeiTi"; src: url("{{ fonts }}/NotoSansSC[wght].ttf"); font-weight: 100 900; }
+@font-face { font-family: "KaiTi"; src: url("{{ fonts }}/LXGWWenKai-Regular.ttf"); font-weight: 400; }
+
+:root {
+  --paper: #FFFFFF;
+  --ink: #1E1D1A;
+  --muted: #6F685D;
+  --rule: #D3CBBA;
+  --accent: #B5432B;
+  --deep: #22302D;
+  --body: "{{ F[0] }}";
+  --head: "{{ F[1] }}";
+  --quote: "{{ F[2] }}";
+}
+
+@page {
+  size: A5;
+  margin: 20mm 16mm 18mm 16mm;
+  background: var(--paper);
+  /* 脚注线：版心宽度的 1/4（CY/T 121—2015《学术出版规范 注释》5.3），左齐 */
+  @footnote { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='29mm' height='0.4pt' viewBox='0 0 29 0.14'><rect width='29' height='0.14' fill='%231E1D1A'/></svg>"); background-repeat: no-repeat; background-position: 0 0; padding-top: 2mm; margin-top: 4mm; }
+}
+/* 页眉照《选择的悖论》纸书的位置：页码在外上角，旁边一行小字——双页（左）是刊名，单页（右）是本篇的书名 */
+@page :left {
+  @top-left-corner { content: counter(page); font: 500 8.5pt/5.5mm "HeiTi"; color: var(--muted); text-align: center; vertical-align: top; padding-top: 4mm; }
+  @top-left { content: "{{ cfg.name }}"; font: 7.5pt/5.5mm "HeiTi"; letter-spacing: .1em; color: var(--muted); vertical-align: top; padding-top: 4mm; }
+}
+@page :right {
+  @top-right-corner { content: counter(page); font: 500 8.5pt/5.5mm "HeiTi"; color: var(--muted); text-align: center; vertical-align: top; padding-top: 4mm; }
+  @top-right { content: string(book); font: 7.5pt/5.5mm "HeiTi"; letter-spacing: .1em; color: var(--muted); vertical-align: top; padding-top: 4mm; }
+}
+@page cover { margin: 0; background: {{ pal.field }}; @top-left { content: none; } @top-right { content: none; } @top-left-corner { content: none; } @top-right-corner { content: none; } }
+@page plain { @top-left { content: none; } @top-right { content: none; } @top-left-corner { content: none; } @top-right-corner { content: none; } }
+@page :blank { @top-left { content: none; } @top-right { content: none; } @top-left-corner { content: none; } @top-right-corner { content: none; } }
+@page back { margin: 0; background: {{ pal.field }}; @top-left { content: none; } @top-right { content: none; } @top-left-corner { content: none; } @top-right-corner { content: none; } }
+
+* { box-sizing: border-box; }
+html { font-family: var(--body), serif; color: var(--ink); font-size: 10.5pt; }   /* 正文五号 */
+body { margin: 0; }
+
+/* ---------------- 封面：底色 + 图案 + 竖排刊名（cover.json，见 rules/editor/cover.md） ---------------- */
+.cover { page: cover; position: relative; width: 148mm; height: 210mm; overflow: hidden; color: {{ pal.ink }}; }
+.cover svg { position: absolute; left: 0; top: 0; }
+.cover .mast { position: absolute; right: 16mm; top: 17mm; font: 400 58pt/1.08 "{{ mast_font }}"; text-align: center; }
+.cover .series { position: absolute; right: 16mm; top: 66mm; width: 20mm; text-align: center; font: 500 7.5pt/1.6 "HeiTi"; letter-spacing: .25em; }
+.cover .date { position: absolute; right: 16mm; top: 78mm; width: 20mm; text-align: center; font: 8pt/1.9 "SongTi"; letter-spacing: .1em; }
+.cover .date span { display: block; }
+
+/* ---------------- 目录：单独一页，不花哨 ---------------- */
+.contents { page: plain; break-before: page; padding-top: 22mm; }
+.contents .lab { font: 600 7.5pt "HeiTi"; letter-spacing: .3em; color: var(--accent); margin-bottom: 6mm; }
+.contents a { display: block; position: relative; color: inherit; text-decoration: none; border-top: .5pt solid var(--rule); padding: 4mm 12mm 4.5mm 10mm; }
+.contents a:last-child { border-bottom: .5pt solid var(--rule); }
+.contents .n { position: absolute; left: 0; top: 4.6mm; font: 600 8.5pt "HeiTi"; color: var(--accent); }
+.contents .h { font: 600 11pt/1.5 var(--head); }
+.contents .b { font: 9pt/1.6 "SongTi"; color: var(--muted); margin-top: .8mm; }
+.contents a::after { content: target-counter(attr(href url), page); position: absolute; right: 0; top: 4.3mm; font: 9.5pt "SongTi"; color: var(--muted); }
+
+/* ---------------- 扉页：每本书一整页，大封面 + 书名 + 背景 + 导读 ---------------- */
+.divider { page: plain; break-before: page; }
+.divider .top { display: flex; gap: 6mm; align-items: flex-end; }
+.divider .top img { height: 65.6mm; width: auto; display: block; margin: -4.8mm; }   /* 带阴影的图，四周 4.8mm 是阴影边，书影本身高 56mm */
+.divider .top .t { flex: 1; padding-bottom: 1mm; }
+.divider .num { font: 600 8pt "HeiTi"; letter-spacing: .25em; color: var(--accent); margin-bottom: 3mm; }
+.divider .bt { font: 700 20pt/1.3 var(--head); margin: 0; }
+.divider .by { font: 8.5pt/1.7 "HeiTi"; color: var(--muted); margin-top: 3mm; }
+.divider .sec { margin-top: 5.5mm; }
+.divider .lab { font: 600 7.5pt "HeiTi"; letter-spacing: .3em; color: var(--accent); margin-bottom: 1.5mm; }
+.divider .pick { font: 600 10.5pt/1.6 var(--head); margin-bottom: 1.5mm; }
+.divider p { margin: 0; font: 10pt/1.7 var(--body); text-align: justify; color: #2E2B26; }
+.divider p.lead { font: 10.5pt/1.75 var(--quote); }   /* 引子用引文字体 */
+
+/* ---------------- 正文 ---------------- */
+.article { break-before: page; counter-reset: footnote; }
+.article .runhead { string-set: book content(); height: 0; overflow: hidden; font-size: 0; }
+.article .from { font: 8pt var(--head); letter-spacing: .05em; color: var(--muted); }
+.article h2 { font: 700 16pt/1.4 var(--head); margin: 2mm 0 7mm; }
+.body p { margin: 0 0 .7em; text-align: justify; text-indent: 2em; line-height: 1.75; orphans: 2; widows: 2; }   /* 段间留一点空，照《选择的悖论》 */
+.body h4 { font: 600 11.5pt/1.5 var(--head); text-align: center; margin: 7mm 0 3.5mm; break-after: avoid; }          /* 节标题：黑体居中 */
+.body h5 { font: 600 10.5pt/1.6 var(--head); margin: 4.5mm 0 1.5mm; break-after: avoid; }                            /* 小节标题：黑体靠左 */
+.body .verse { margin: 3mm 0 3mm 2em; font-family: var(--quote); line-height: 1.75; color: #35312B; }
+.body .epi { margin: 0 0 0 4em; font: 10.5pt/1.75 var(--quote); color: #35312B; text-align: justify; }
+.body .epi-by { margin: 1mm 0 6mm; text-align: right; font: 10.5pt/1.75 var(--quote); color: var(--muted); }
+.body .epi + h4, .body .epi + p { margin-top: 6mm; }
+/* 引文：换楷体，左右缩进，照纸书 */
+.body p.quote { font-family: var(--quote); font-size: 10pt; margin: 0 1em .7em 2em; color: #35312B; }
+.body p:not(.quote) + p.quote, .body h4 + p.quote, .body h5 + p.quote, .body ul.list + p.quote { margin-top: 2.5mm; }
+.body p.quote + p:not(.quote) { margin-top: 2.5mm; }
+/* 条目：■ 悬挂缩进，照《选择的悖论》；带序号的不加 ■ */
+.body ul.list { list-style: none; margin: 1mm 0 3.5mm 2em; padding: 0; }
+.body ul.list li { position: relative; padding-left: 1.4em; line-height: 1.75; text-align: justify; margin: 0 0 .25em; }
+.body ul.list li::before { content: "■"; position: absolute; left: 0; top: .05em; font-size: 7pt; color: var(--ink); }
+.body ul.list li.num { padding-left: 2em; text-indent: -2em; }
+.body ul.list li.num::before { content: none; }
+/* 方框栏目：书里的小栏目（"心理发现""本章总览""微习惯配方"）用框线圈出来 */
+.body aside.box { border: .5pt solid var(--ink); padding: 3.5mm 4.5mm 2.5mm; margin: 4.5mm 0; font-size: 9.5pt; break-inside: avoid; }
+.body .box .boxtitle { font: 700 10pt/1.5 var(--head); text-align: center; letter-spacing: .05em; margin: 0 0 2.5mm; }
+.body .box p { text-indent: 2em; margin: 0 0 .6em; line-height: 1.7; }
+.body .box .bh { font: 600 9.5pt/1.6 var(--head); margin: 2mm 0 1mm; }
+.body .box .bli { padding-left: 2em; text-indent: -2em; line-height: 1.7; margin: 0 0 .35em; text-align: justify; }
+.body .box figure { margin: 2mm 0 1.5mm; }
+.body .box figure img { max-height: 70mm; }
+.body figure { margin: 5mm 0; text-align: center; break-inside: avoid; }
+.body figure img { max-width: 100%; max-height: 105mm; width: auto; height: auto; }
+.body figcaption { margin-top: 2mm; font: 8.5pt/1.6 var(--head); color: var(--muted); }
+/* 脚注：小五号宋体（比正文小一号），注码用圈码①，正文里上标、注文里不上标；注文悬挂缩进，回行和首行文字对齐 */
+@counter-style circled { system: fixed; symbols: "①" "②" "③" "④" "⑤" "⑥" "⑦" "⑧" "⑨" "⑩" "⑪" "⑫" "⑬" "⑭" "⑮" "⑯" "⑰" "⑱" "⑲" "⑳"; suffix: ""; }
+.fn { float: footnote; font: 9pt/1.5 var(--body); color: var(--ink); text-align: justify; padding-left: 1.4em; text-indent: -1.4em; }
+.fn::footnote-call { content: counter(footnote, circled); font-size: 70%; vertical-align: super; line-height: 0; margin: 0 .05em; }
+.fn::footnote-marker { content: counter(footnote, circled); margin-right: .4em; }   /* 定宽空隙，不参与两端对齐的拉伸 */
+.body .cut { width: 12mm; border-top: .6pt solid var(--rule); margin: 4.5mm auto; }
+.g { display: inline-block; width: .25em; }   /* 中西文间距 */
+.body .sp { display: inline-block; width: .26em; }  /* 括注里英文词间距：不用空格，免得被两端对齐拉开 */
+.body em { font-style: normal; text-emphasis: filled dot; -webkit-text-emphasis: filled dot; }
+.endmark { text-align: right; margin-top: 4mm; color: var(--accent); font-size: 8pt; }
+
+/* ---------------- 笔记页 ---------------- */
+.notes { break-before: page; page: plain; }
+.notes .lines div { height: 8.4mm; border-bottom: .5pt solid var(--rule); }
+
+/* ---------------- 封底：封面图案的另一半（摊开来在书脊处拼成一整把扇子）---------------- */
+.backcover { page: back; break-before: page; position: relative; width: 148mm; height: 210mm; overflow: hidden; color: {{ pal.ink }}; }
+.backcover svg { position: absolute; left: 0; top: 0; }
+.backcover .colophon { position: absolute; left: 16mm; top: 17mm; width: 20mm; text-align: center; font: 8pt/1.9 "SongTi"; letter-spacing: .1em; }
+.backcover .colophon span { display: block; }
+</style>
+</head>
+<body>
+
+<!-- 封面 -->
+<section class="cover">{{ cover_svg|safe }}
+  <div class="mast"><div>{{ cfg.name[0] }}</div><div>{{ cfg.name[1:] }}</div></div>
+  {% if cover.series %}<div class="series">{{ cover.series }}</div>{% endif %}
+  <div class="date"><span>{{ cn_date[0] }}</span><span>{{ cn_date[1] }}</span></div>
+</section>
+
+<!-- 目录 -->
+<section class="contents">
+  <div class="lab">目录</div>
+  {% for p in pieces %}
+  <a href="#piece-{{ loop.index }}"><span class="n">{{ "%02d"|format(loop.index) }}</span>
+    <div class="h">{{ p.chapter_title }}</div>
+    <div class="b">《{{ p.book_title }}》{{ p.author }}</div></a>
+  {% endfor %}
+</section>
+
+{% for p in pieces %}
+<!-- 扉页 -->
+<section class="divider" id="piece-{{ loop.index }}">
+  <div class="top">
+    {% if p.cover_url %}<img src="{{ p.cover_url }}" alt="">{% endif %}
+    <div class="t">
+      <div class="num">{{ "%02d"|format(loop.index) }}</div>
+      <h2 class="bt" style="font-size: {{ p.title_pt }}pt">《{{ p.title_html|safe }}》</h2>
+      <div class="by">{{ p.author }}{% if p.year %}，{{ p.year }}{% endif %}{% if p.original_title %}<br>{{ p.original_title }}{% endif %}</div>
+    </div>
+  </div>
+  {% if p.context %}<div class="sec"><p class="lead">{{ p.context_html|safe }}</p></div>{% endif %}
+  <div class="sec"><div class="lab">本期选读</div><div class="pick">{{ p.chapter_label }}</div>{% if p.intro %}<p>{{ p.intro_html|safe }}</p>{% endif %}</div>
+</section>
+
+<section class="article">
+  <div class="runhead">{{ p.book_title }}</div>
+  <div class="from">《{{ p.book_title }}》{{ p.author }}{% if p.excerpted %}　节选{% endif %}</div>
+  <h2>{{ p.chapter_title }}</h2>
+  <div class="body">
+    {% if p.excerpted and p.excerpt.from > 0 %}<div class="cut"></div>{% endif %}
+    {% for b in p.blocks %}
+      {% if b.type == "verse" %}<div class="verse">{{ b.html|safe }}</div>
+      {% elif b.type == "epi" %}<div class="epi">{{ b.html|safe }}</div>
+      {% elif b.type == "epi-by" %}<div class="epi-by">——{{ b.html|safe }}</div>
+      {% elif b.type == "img" %}<figure><img src="{{ b.src }}" alt="">{% if b.caption %}<figcaption>{{ b.caption|safe }}</figcaption>{% endif %}</figure>
+      {% elif b.type == "h" %}{% if b.sub %}<h5>{{ b.html|safe }}</h5>{% else %}<h4>{{ b.html|safe }}</h4>{% endif %}
+      {% elif b.type == "quote" %}<p class="quote">{{ b.html|safe }}</p>
+      {% elif b.type == "list" %}<ul class="list">{% for it in b["items"] %}<li{% if it.num %} class="num"{% endif %}>{{ it.html|safe }}</li>{% endfor %}</ul>
+      {% elif b.type == "box" %}<aside class="box">{% if b.title %}<div class="boxtitle">{{ b.title|safe }}</div>{% endif %}
+        {% for it in b["items"] %}{% if it.type == "img" %}<figure><img src="{{ it.src }}" alt="">{% if it.caption %}<figcaption>{{ it.caption|safe }}</figcaption>{% endif %}</figure>
+        {% elif it.type == "li" %}<div class="bli">{{ it.html|safe }}</div>
+        {% elif it.type == "h" %}<div class="bh">{{ it.html|safe }}</div>
+        {% else %}<p>{{ it.html|safe }}</p>{% endif %}{% endfor %}</aside>
+      {% else %}<p>{{ b.html|safe }}</p>{% endif %}
+    {% endfor %}
+    {% if p.excerpted %}<div class="cut"></div>{% endif %}
+  </div>
+  <div class="endmark">■</div>
+</section>
+{% endfor %}
+
+{% for i in range(note_pages) %}
+<section class="notes">
+  <div class="lines">{% for _ in range(20) %}<div></div>{% endfor %}</div>
+</section>
+{% endfor %}
+
+<!-- 封底 -->
+<section class="backcover">{{ back_svg|safe }}
+  <div class="colophon"><span>{{ cfg.name }}</span><span>{{ cn_date[0] }}</span><span>{{ cn_date[1] }}</span></div>
+</section>
+
+</body>
+</html>

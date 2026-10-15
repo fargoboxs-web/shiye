@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "selection.json",
+  "type": "object",
+  "required": ["issue", "pieces"],
+  "properties": {
+    "issue": {
+      "type": "object",
+      "required": ["date"],
+      "properties": {
+        "date": {"type": "string", "description": "出刊日期 YYYY-MM-DD，也是期目录名"},
+        "number": {"type": "integer", "description": "可选；没有期数就不填"}
+      }
+    },
+    "pieces": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["book", "chapter"],
+        "properties": {
+          "book": {"type": "string", "description": "issues/<日期>/books/ 下的文件名（不含 .json）"},
+          "chapter": {"type": "integer", "description": "candidates.md 里方括号中的章节号"},
+          "excerpt": {"type": "object", "required": ["from", "to"], "properties": {"from": {"type": "integer"}, "to": {"type": "integer"}}},
+          "title": {"type": "string", "description": "杂志里的篇名，不填用章名"},
+          "context": {"type": "string", "maxLength": 600, "description": "引子，见 rules/editor/context.md"},
+          "intro": {"type": "string", "maxLength": 320, "description": "摘要，见 rules/editor/summary.md"},
+          "notes": {
+            "type": "array",
+            "items": {"type": "object", "required": ["term", "note"],
+                      "properties": {"term": {"type": "string"}, "note": {"type": "string", "maxLength": 80}}}
+          }
+        }
+      }
+    }
+  }
+}

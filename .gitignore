@@ -1,0 +1,20 @@
+# 每个人自己的东西：不进仓库（笔记是隐私，书有版权，PDF 是成品）
+inbox/
+work/
+issues/
+books/
+cache/
+*.pdf
+reader.md
+person.yaml
+
+# 开源字体用 scripts/fetch-fonts.sh 下载
+fonts/
+
+# 密钥
+.env
+*.key
+
+__pycache__/
+*.pyc
+.DS_Store

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "notes.jsonl 的一行",
+  "type": "object",
+  "required": ["id", "source", "text"],
+  "properties": {
+    "id": {"type": "string", "description": "稳定唯一，来源前缀加原始 id"},
+    "source": {"type": "string"},
+    "kind": {"type": "string", "enum": ["post", "video", "note", "article", "book_highlight", "other"]},
+    "time": {"type": ["string", "null"], "description": "ISO 8601"},
+    "title": {"type": ["string", "null"]},
+    "url": {"type": ["string", "null"]},
+    "text": {"type": "string"},
+    "images": {"type": "array", "items": {"type": "string"}},
+    "tags": {"type": "array", "items": {"type": "string"}},
+    "note": {"type": ["string", "null"], "description": "收藏时自己写的话"}
+  }
+}

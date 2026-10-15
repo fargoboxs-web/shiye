@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "books.yaml",
+  "type": "object",
+  "required": ["books"],
+  "properties": {
+    "books": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": {"type": "string", "description": "中文通行译名"},
+          "display_title": {"type": "string", "description": "杂志里显示的书名，不填用 title"},
+          "original_title": {"type": "string", "description": "外文原名"},
+          "author": {"type": "string"},
+          "year": {"type": ["integer", "string"]},
+          "file": {"type": "string", "description": "本地文件：epub / pdf / txt / md / json"},
+          "url": {"type": "string"},
+          "gutenberg_id": {"type": "integer"},
+          "rights": {"type": "string", "enum": ["owned", "public_domain", "licensed"]},
+          "why_saved": {"type": "string", "description": "笔记原话，一两句，带笔记 id"}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+weasyprint>=60
+ebooklib
+beautifulsoup4
+lxml
+pypdf
+pdfplumber
+pyyaml
+jinja2
+pillow
+# 可选：run.py select --api / translate --api 才需要
+# anthropic

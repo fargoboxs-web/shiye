@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "cover.json",
+  "type": "object",
+  "required": ["title"],
+  "properties": {
+    "title": {"type": "string", "minLength": 2, "maxLength": 2, "description": "刊名，两个汉字"},
+    "candidates": {"type": "array", "items": {"type": "string"}},
+    "series": {"type": "string", "description": "封面小字，系列名；不填不印"},
+    "palette": {
+      "oneOf": [
+        {"type": "string", "enum": ["淡紫", "芥末黄", "灰绿", "淡粉"]},
+        {"type": "integer", "minimum": 0},
+        {"type": "object", "required": ["field", "shapes"],
+         "properties": {"field": {"type": "string"}, "shapes": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "string"}},
+                        "ink": {"type": "string"}}}
+      ]
+    },
+    "motif": {"type": "string", "enum": ["fan", "stack", "scatter", "svg"], "default": "fan"},
+    "svg": {"type": "string", "description": "motif 为 svg 时的 SVG 片段，坐标系 148×210"},
+    "seed": {"type": "integer"},
+    "mast": {"type": "string", "enum": ["kai", "song", "hei"], "default": "kai"}
+  }
+}
