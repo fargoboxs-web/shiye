@@ -22,12 +22,67 @@ CJK = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
 
 
 # 竖排标点（台版电子书常见）换回横排
-VERTICAL = str.maketrans("﹁﹂﹃﹄︽︾︿﹀︵︶︱︹︺︻︼", "「」『』《》〈〉（）|〔〕【】")
+VERTICAL = str.maketrans("﹁﹂﹃﹄︽︾︿﹀︵︶︷︸﹇﹈︹︺︻︼︱︲︰", "「」『』《》〈〉（）｛｝［］〔〕【】—–：")
 
 
 def count_words(text: str) -> int:
     """英文按词数；中文按"两个汉字约等于一个英文词"折算，读起来的时间大致相当。"""
     return len(CJK.sub(" ", text).split()) + len(CJK.findall(text)) // 2
+
+
+def count_chars(text: str) -> int:
+    """汉字数（rules/editor/selection.md 的篇幅单位）。"""
+    return len(CJK.findall(text))
+
+
+def size_label(ch: dict) -> str:
+    """候选表和 show 里标篇幅：中文书「约 N 字」，外文书「N 词」。"""
+    return f"约 {ch['chars']} 字" if ch.get("chars", 0) > ch.get("words", 0) else f"{ch['words']} 词"
+
+
+_CN_DIGIT = "〇一二三四五六七八九"
+
+
+def normalize_zh(text: str) -> str:
+    """中文文本的字符体例（rules/typesetting/punctuation.md）：
+    竖排标点→横排；制表线 ── → 破折号 ——；译名里的全角句点／连字点 → 间隔号 ·；年份里的 ○ → 〇；
+    “” ‘’ → 「」『』（全刊只用一种引号）。只对汉字为主的文本做；西文原文不动。"""
+    if not text or count_chars(text) < len(CJK.sub("", text).split()):
+        return text
+    t = text.translate(VERTICAL)
+    t = re.sub(r"[─━―]+", "——", t)                      # ──、― → ——
+    t = re.sub(r"(?<=[㐀-鿿])[．‧・](?=[㐀-鿿])", "·", t)   # 保羅．米勒 → 保罗·米勒
+    for _ in range(3):                                                    # 二○○六 → 二〇〇六
+        t2 = re.sub(rf"(?:(?<=[{_CN_DIGIT}])|(?=[{_CN_DIGIT}]))○", "〇", t)
+        if t2 == t:
+            break
+        t = t2
+    t = t.replace("“", "「").replace("”", "」")
+    out, depth = [], 0                                                    # ‘’ 只在成对时转，别碰 it’s 的撇号
+    for c in t:
+        if c == "‘":
+            out.append("『"); depth += 1
+        elif c == "’" and depth > 0:
+            out.append("』"); depth -= 1
+        else:
+            out.append(c)
+    return "".join(out)
+
+
+# 台版简化后的惯用字（rules/quality/验收.md B16）：动词后的「著」是「着」；这些词里的「著」不改
+_ZHE_KEEP_BEFORE = "编原拙论合遗译巨专名土昭显卓所新旧另"
+_ZHE_KEEP_AFTER = "作名述称有录书者文于成"
+_TW_WORDS = [("甚么", "什么"), ("瞭解", "了解"), ("眼花瞭乱", "眼花缭乱"), ("标籤", "标签"), ("佔", "占"), ("週", "周"), ("製", "制")]
+
+
+_TW_PARTICLE = re.compile(r"(接|试|看|有|随|跟|带|想|忙|说|站|坐|拿|写|读|朝|顺|沿|为|做|活|留|等|睡|笑|走|背|抱|指|望)著")
+
+
+def tw_fix(text: str) -> str:
+    t = re.sub(rf"(?<![{_ZHE_KEEP_BEFORE}])著(?![{_ZHE_KEEP_AFTER}])", "着", text)
+    for a, b in _TW_WORDS:
+        t = t.replace(a, b)
+    return t
 
 
 MOJIBAKE = {"A\u2020": "Æ", "A(R)": "î"}
@@ -109,7 +164,14 @@ def _finish(chapters: list[dict]) -> list[dict]:
     out = []
     for ch in chapters:
         _tidy_cjk(ch)
+        ch["title"] = normalize_zh(ch["title"])
+        for b in ch["blocks"]:
+            if b["type"] != "img":
+                b["text"] = normalize_zh(b["text"])
+            elif b.get("caption"):
+                b["caption"] = normalize_zh(b["caption"])
         ch["words"] = sum(count_words(b["text"]) for b in ch["blocks"] if b["type"] not in ("h", "img"))
+        ch["chars"] = sum(count_chars(b["text"]) for b in ch["blocks"] if b["type"] not in ("h", "img"))
         ch.setdefault("kind", kind_of(ch["title"]))
         if ch["words"] >= 150:
             out.append(ch)
@@ -271,6 +333,9 @@ def parse_epub(path: Path) -> dict:
         v = book.get_metadata("DC", dc)
         if v:
             meta[key] = v[0][0]
+    creators = [(str(v), dict(a or {})) for v, a in book.get_metadata("DC", "creator")]
+    creators += [(str(v), dict(a or {})) for v, a in book.get_metadata("DC", "contributor")
+                 if not str(v).lower().startswith("calibre")]
 
     # 目录（toc）里一级条目对应的文件，作为章节起点；中文电子书常常不用 h 标签，只能靠目录切
     toc = {}  # 文件名 -> (深度, 标题)；同一个文件只记第一个指向它的条目（通常是章标题，后面的是文件内小节）
@@ -355,6 +420,9 @@ def parse_epub(path: Path) -> dict:
     for ch in chapters:  # epub 正文已是纯文本，转义以便安全放进 HTML
         for b in ch["blocks"]:
             b["text"] = b["text"].replace("_", "_")
+    tr = find_translator(creators, chapters)   # 在 _finish 之前：版权页很短，_finish 会把它滤掉
+    if tr:
+        meta["translator"] = tr
     return {**meta, "chapters": _finish(chapters)}
 
 
@@ -562,13 +630,74 @@ def maybe_simplify(book: dict) -> bool:
     cc = OpenCC("t2s")
     sample = " ".join(b["text"] for ch in book["chapters"][:4] for b in ch["blocks"])[:4000]
     if not sample or sum(a != b for a, b in zip(sample, cc.convert(sample))) < len(sample) * 0.03:
+        # 字已是简体、用法仍是台版（calibre 转过的台版书）：「著」当「着」用得多，就只做惯用字替换
+        allt = " ".join(b["text"] for ch in book["chapters"] for b in ch["blocks"])
+        if len(_TW_PARTICLE.findall(allt)) >= 10:
+            for ch in book["chapters"]:
+                ch["title"] = tw_fix(ch["title"])
+                for b in ch["blocks"]:
+                    b["text"] = tw_fix(b["text"])
+                    if b.get("caption"):
+                        b["caption"] = tw_fix(b["caption"])
+            book["tw_usage"] = True
         return False
     for ch in book["chapters"]:
-        ch["title"] = cc.convert(ch["title"])
+        ch["title"] = tw_fix(cc.convert(ch["title"]))
         for b in ch["blocks"]:
-            b["text"] = cc.convert(b["text"])
-    for k in ("title", "author"):
+            b["text"] = tw_fix(cc.convert(b["text"]))
+            if b.get("caption"):
+                b["caption"] = tw_fix(cc.convert(b["caption"]))
+    for k in ("title", "author", "translator"):
         if book.get(k):
             book[k] = cc.convert(book[k])
     book["simplified_from"] = "繁体"
     return True
+
+
+_TRANSLATOR_LINE = re.compile(r"^\s*(?:[译譯]\s*者|翻\s*[译譯])\s*[：:　 ]?\s*(?!简介|簡介|序|[后後]记|後記|的[话話]|说明|說明)([\u3400-\u9fff·]{2,8})\s*$|^\s*(?![^译譯]*[翻由本书是为的])([\u3400-\u9fff·]{2,6})\s*[译譯]\s*$")
+
+
+def find_translator(creators: list[tuple[str, dict]], chapters: list[dict]) -> str | None:
+    """译者：先看 EPUB 元数据的 role=trl；再看版权页里「译者：某某」「某某 译」这样的整行；
+    最后一个保守的猜测——三个以上 creator、末一个是纯汉字名且与作者不共字（calibre 导入的台版书常这样）。"""
+    author = creators[0][0] if creators else ""
+    for name, attrs in creators:
+        if any(str(v).lower() == "trl" for k, v in attrs.items() if "role" in str(k)):
+            return name
+        m = re.match(r"^(.+?)\s*[（(]?[译譯][）)]?$", name)
+        if m and m.group(1) != author:
+            return m.group(1)
+    for ch in chapters[:6]:
+        blocks = ch["blocks"][:150]
+        for i, b in enumerate(blocks):
+            m = _TRANSLATOR_LINE.match(b["text"])
+            if m:
+                return m.group(1) or m.group(2)
+            if re.fullmatch(r"\s*(?:关于|關於)?[译譯]者(?:简介|簡介)?\s*", b["text"]):   # 「译者简介」小标题，名字在下一段开头
+                for nb in blocks[i + 1 : i + 3]:
+                    m = re.match(r"^\s*([\u3400-\u9fff·]{2,4})(?=[\s，,（(、。]|$)", nb["text"])
+                    if m:
+                        return m.group(1)
+    name_re = re.compile(r"^\s*(?!引言|前言|序言|目录|目錄|致谢|致謝|后记|後記|附录|附錄|简介|簡介|作者|译者|譯者)([\u3400-\u9fff·]{2,4})\s*$")
+    date_re = re.compile(r"^\s*([〇○一二三四五六七八九\d]{4}\s*年|\d{4}\s*[.．/-]\s*\d{1,2}|于|於)")
+    resume_re = re.compile(r"(翻[译譯]|[译譯]者|[笔筆口][译譯])")
+    resume_hint = re.compile(r"(现职|現職|从事|從事|[毕畢]业|校友|[译譯]有|[译譯]作|[译譯]过|[译譯]過|专职|專職|自由)")
+    for ch in chapters:
+        blocks = ch["blocks"]
+        if re.search(r"[译譯]者|[译譯][后後]记|[译譯]序", ch["title"]):      # 「译者后记」的署名：人名一行，下一行是日期或地点
+            for i, b in enumerate(blocks):
+                m = name_re.match(b["text"])
+                if m and i + 1 < len(blocks) and date_re.match(blocks[i + 1]["text"]):
+                    return m.group(1)
+    for ch in chapters[:3] + chapters[-3:]:                                   # 作者简介页：人名小标题 + 一段提到翻译的简历
+        blocks = ch["blocks"]
+        for i, b in enumerate(blocks):
+            m = name_re.match(b["text"])
+            if m and any(resume_re.search(nb["text"]) and resume_hint.search(nb["text"]) for nb in blocks[i + 1 : i + 3]):
+                return m.group(1)
+    if len(creators) >= 3:
+        last = creators[-1][0].strip()
+        others = "".join(n for n, _ in creators[:-1])
+        if re.fullmatch(r"[\u3400-\u9fff]{2,4}", last) and not set(last) & set(others):
+            return last
+    return None

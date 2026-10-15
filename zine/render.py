@@ -10,7 +10,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from . import translate
-from .parse import CJK, inline
+from .parse import CJK, inline, normalize_zh
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -97,11 +97,13 @@ def _shape(blocks: list[dict], chapter_title: str) -> list[dict]:
 
 # 封面配色：每期换一组。cover.json 的 palette 可以是名字、序号或 {field, shapes}；没有就按 seed 轮着用。
 # field 是底色，shapes 是"纸"的三种颜色。见 rules/typesetting/covers.md
+# 纸色固定三样（rules/quality/验收.md C6）：墨黑 #1E1D1A（与内页同一个值）、米白 #FBF8F1、拾页红 #D94F2B；不用蓝
+INK, CREAM, RED = "#1E1D1A", "#FBF8F1", "#D94F2B"
 PALETTES = [
-    {"name": "淡紫", "field": "#D9D4E7", "shapes": ["#1E1E1C", "#FBF8F1", "#D94F2B"], "ink": "#1E1E1C"},
-    {"name": "芥末黄", "field": "#E6B93F", "shapes": ["#1E1E1C", "#FBF8F1", "#2F4BC9"], "ink": "#1E1E1C"},
-    {"name": "灰绿", "field": "#DCE5DF", "shapes": ["#1F3D2B", "#FBF8F1", "#D94F2B"], "ink": "#1E1E1C"},
-    {"name": "淡粉", "field": "#F0D9D0", "shapes": ["#1E1E1C", "#FBF8F1", "#2F4BC9"], "ink": "#1E1E1C"},
+    {"name": "淡紫", "field": "#D9D4E7", "shapes": [INK, CREAM, RED], "ink": INK},
+    {"name": "芥末黄", "field": "#E6B93F", "shapes": [INK, CREAM, RED], "ink": INK},
+    {"name": "灰绿", "field": "#DCE5DF", "shapes": ["#1F3D2B", CREAM, RED], "ink": INK},
+    {"name": "淡粉", "field": "#F0D9D0", "shapes": [INK, CREAM, RED], "ink": INK},
 ]
 MAST_FONTS = {"kai": "KaiTi", "song": "SongTi", "hei": "HeiTi"}
 
@@ -112,7 +114,7 @@ def palette(seed: int, config: dict) -> dict:
         shapes = list(p.get("shapes") or [])
         if len(shapes) < 3:
             raise ValueError("自定义调色板要给 field 和三个 shapes 颜色")
-        return {"name": p.get("name", "自定义"), "field": p["field"], "shapes": shapes[:3], "ink": p.get("ink", "#1E1E1C")}
+        return {"name": p.get("name", "自定义"), "field": p["field"], "shapes": shapes[:3], "ink": p.get("ink", INK)}
     if isinstance(p, str):
         for pal in PALETTES:
             if pal["name"] == p:
@@ -193,6 +195,42 @@ def shadowed(src: Path, paper: str = "#FFFFFF") -> Path:
     return out
 
 
+def prepared_image(src: Path) -> tuple[Path, int, int]:
+    """插图进版前的两件事（rules/typesetting：内页白底、位图 ≥ 150ppi）：
+    1. 灰底扫描图（四边中位亮度 < 245、近乎无彩）按边缘亮度拉到纸白，存成 *.white.png；彩图和白底图不动。
+    2. 返回原图像素，排版时按 150ppi 限制置入宽度。"""
+    from PIL import Image
+    im = Image.open(src)
+    w, h = im.size
+    rgb = im.convert("RGB")
+    bw, bh = max(1, w * 3 // 100), max(1, h * 3 // 100)
+    px = [q for part in (rgb.crop((0, 0, w, bh)), rgb.crop((0, h - bh, w, h)), rgb.crop((0, 0, bw, h)), rgb.crop((w - bw, 0, w, h)))
+          for q in part.getdata()]
+    lum = sorted(0.299 * r + 0.587 * g + 0.114 * b for r, g, b in px)
+    med = lum[len(lum) // 2]
+    chroma = max(abs(r - g) + abs(g - b) for r, g, b in px[:: max(1, len(px) // 3000)])
+    if med >= 245 or chroma > 40:                       # 白底不动；彩图不动
+        return src, w, h
+    # 灰底是哪一级灰：取四边亮度的 25 分位（灰色面板至少占四边的 1/4）；它低于 150 说明是黑框或反白图，不碰
+    white = lum[len(lum) // 4]
+    if white < 150:
+        white = med
+    if white < 150:
+        return src, w, h
+    out = src.with_name(src.name.rsplit(".", 1)[0] + ".white.png")
+    if not (out.exists() and out.stat().st_mtime >= src.stat().st_mtime):
+        lut = [min(255, round(v * 255 / white)) for v in range(256)]   # 灰底拉到纸白，线条按比例提亮
+        rgb.convert("L").point(lut).save(out)
+    return out, w, h
+
+
+def _img_view(path: Path, caption: str, box: bool = False) -> dict:
+    src, w, h = prepared_image(path)
+    max_w = min(116, w / 152 * 25.4)                   # 置入宽 ≤ 原图像素 ÷ 152 × 25.4mm → 有效分辨率 > 150ppi（留一点余量）
+    return {"type": "img", "src": src.resolve().as_uri(), "style": f"max-width: {max_w:.1f}mm",   # 加在 figure 上，方框里不超出
+            "caption": _spacing(inline(caption)) if caption else ""}
+
+
 def _tidy_heading(text: str) -> str:
     """小标题里的 "1.1 | 可能性空间" 去掉竖线；"问题一赢家…" 这种序号和标题之间补一个全角空格。"""
     t = re.sub(r"\s*\|\s*", "\u3000", text.strip())
@@ -225,13 +263,45 @@ def _footnotes(html_blocks: list[dict], notes: list[dict]) -> None:
             break
 
 
+_CN_NUM = {c: i for i, c in enumerate("〇一二三四五六七八九")}
+
+
+def _cn2int(s: str) -> int:
+    if s.isdigit():
+        return int(s)
+    if "十" in s:
+        a, b = s.split("十", 1)
+        return (_CN_NUM[a] if a else 1) * 10 + (_CN_NUM[b] if b else 0)
+    return _CN_NUM[s]
+
+
+def _chapter_label(title: str) -> str:
+    """扉页「本期选读」的章节标签统一成「第 N 章　章名」（rules/typesetting；check ⑬）：
+    "05 xxx" / "第五章xxx" / "第4章 xxx" / "Chapter 4: xxx" 都归到一个体例；认不出章号的原样保留。"""
+    t = re.sub(r"[\u3000\u2003\s]+", " ", title).strip()
+    m = (re.match(r"^第\s*([〇一二三四五六七八九十]+|\d{1,3})\s*[章讲回篇]\s*[、．.:：|｜]?\s*(.*)$", t)
+         or re.match(r"^(?:chapter|ch\.?)\s*(\d{1,3})\s*[.:：]?\s*(.*)$", t, re.I)
+         or re.match(r"^0*(\d{1,3})\s*[、．.:：|｜]\s*(.*)$|^0*(\d{1,3})\s+(.*)$", t))
+    if not m:
+        return t
+    g = [x for x in m.groups() if x is not None]
+    try:
+        n = _cn2int(g[0])
+    except KeyError:
+        return t
+    rest = g[1].strip() if len(g) > 1 else ""
+    return f"第 {n} 章" + (f"\u3000{rest}" if rest else "")
+
+
 def _piece_view(piece: dict, book: dict, zh: dict | None, issue_dir: Path) -> dict:
     ch, blocks, _, _ = translate.selected(piece, book)
     title = ch["title"]
     if zh:
-        # 译文按段对应，type 以原文为准（原文解析可能后来把某段识别成了小标题）
-        blocks = [{**o, "text": z["text"]} for o, z in zip(blocks, zh["blocks"])]
-        title = zh.get("title") or title
+        # 译文按段对应，type 以原文为准（原文解析可能后来把某段识别成了小标题）；译文也过一遍字符体例
+        blocks = [{**o, "text": normalize_zh(z["text"])} for o, z in zip(blocks, zh["blocks"])]
+        title = normalize_zh(zh.get("title") or title)
+    piece = {**piece, "context": normalize_zh(piece.get("context") or ""), "intro": normalize_zh(piece.get("intro") or ""),
+             "notes": [{**n, "note": normalize_zh(n["note"])} for n in piece.get("notes") or []]}
     chars = sum(len(CJK.findall(b["text"])) for b in blocks)
     top = min((b.get("level", 5) for b in blocks if b["type"] == "h"), default=5)   # 本篇最高一级小标题
 
@@ -239,8 +309,7 @@ def _piece_view(piece: dict, book: dict, zh: dict | None, issue_dir: Path) -> di
         if b["type"] == "verse":
             return {"type": "verse", "html": "<br>".join(inline(l) for l in b["text"].split("\n"))}
         if b["type"] == "img":
-            return {"type": "img", "src": (issue_dir / "books" / b["src"]).resolve().as_uri(),
-                    "caption": _spacing(inline(b["caption"])) if b.get("caption") else ""}
+            return _img_view(issue_dir / "books" / b["src"], b.get("caption") or "")
         if b["type"] == "list":
             return {"type": "list", "items": [{"type": "li", "num": bool(_NUM_ITEM.match(it["text"])),
                                                "html": _spacing(_no_stretch(inline(_tidy_num(it["text"]))))} for it in b["items"]]}
@@ -248,7 +317,7 @@ def _piece_view(piece: dict, book: dict, zh: dict | None, issue_dir: Path) -> di
             items = []
             for it in b["items"]:
                 if it["type"] == "img":
-                    items.append(view(it))
+                    items.append(_img_view(issue_dir / "books" / it["src"], it.get("caption") or "", box=True))
                 elif _NUM_ITEM.match(it["text"]):
                     items.append({"type": "li", "num": True, "html": _spacing(_no_stretch(inline(_tidy_num(it["text"]))))})
                 elif len(it["text"]) <= 16 and not re.search(r"[。！？；，]", it["text"]):
@@ -263,9 +332,7 @@ def _piece_view(piece: dict, book: dict, zh: dict | None, issue_dir: Path) -> di
     html_blocks = [view(b) for b in _shape(blocks, ch["title"])]
     _footnotes(html_blocks, piece.get("notes"))
     excerpted = bool(piece.get("excerpt"))
-    chapter_label = ch["title"].replace("\u3000", " ").replace("\u2003", " ")
-    chapter_label = re.sub(r"^0*(\d{1,2})\s+", lambda m: f"第 {m.group(1)} 章 ", chapter_label)   # "05 xxx" → "第 5 章 xxx"
-    chapter_label = re.sub(r"^第\s*(\d{1,2})\s*章\s*", lambda m: f"第 {m.group(1)} 章 ", chapter_label)   # "第4章xxx" → "第 4 章 xxx"
+    chapter_label = _chapter_label(title if zh else ch["title"])
     if excerpted:
         sub = piece.get("title")
         chapter_label += f"（节选：{sub}）" if sub and sub not in ch["title"] else "（节选）"
@@ -283,6 +350,7 @@ def _piece_view(piece: dict, book: dict, zh: dict | None, issue_dir: Path) -> di
         "title_pt": title_pt,
         "original_title": book.get("original_title"),
         "author": book.get("author", ""),
+        "translator": book.get("translator"),
         "year": book.get("year"),
         "source": book.get("source", ""),
         "chapter_title": piece.get("title") or title,

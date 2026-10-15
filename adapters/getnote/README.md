@@ -8,6 +8,13 @@ python3 adapters/getnote/pull.py --days 30 --full   # → inbox/getnote-<日期>
 python3 run.py ingest inbox/                         # → work/notes.jsonl
 ```
 
+`pull.py` 不带 `--full` 时，每条的 `text` 只是 Get笔记 的 AI 摘要（六百字左右），够扫、不够引用。要原话时按 id 取：
+
+```bash
+python3 adapters/getnote/fetch.py 1920347657994434784 …                         # → work/full/<id>.json
+python3 adapters/getnote/fetch.py --from-digest work/notes-digest.md --grep 书单   # 按 digest 里的行挑
+```
+
 `getnote.py` 直接调官方 REST（三个函数：`list_items(since)`、`get_item(id)`、`search_items(q)`），不经过官方 MCP。下面是 2026-10-12 的接口调研。
 
 ---

@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <title>{{ cfg.name }} {{ cn_date[0] }}{{ cn_date[1] }}</title>
+<meta name="author" content="{{ cfg.name }}">
+<meta name="dcterms.created" content="{{ issue.date }}">
+<meta name="dcterms.modified" content="{{ issue.date }}">
 <style>
 @font-face { font-family: "SongTi"; src: url("{{ fonts }}/NotoSerifSC[wght].ttf"); font-weight: 200 900; }
 @font-face { font-family: "HeiTi"; src: url("{{ fonts }}/NotoSansSC[wght].ttf"); font-weight: 100 900; }
@@ -29,11 +32,11 @@
 }
 /* 页眉照《选择的悖论》纸书的位置：页码在外上角，旁边一行小字——双页（左）是刊名，单页（右）是本篇的书名 */
 @page :left {
-  @top-left-corner { content: counter(page); font: 500 8.5pt/5.5mm "HeiTi"; color: var(--muted); text-align: center; vertical-align: top; padding-top: 4mm; }
+  @top-left-corner { content: counter(page); font: 500 8.5pt/5.5mm "HeiTi"; color: var(--muted); text-align: center; vertical-align: top; padding-top: 4mm; padding-left: 3mm; }   /* 外侧多留 3mm：页码离切口 ≥ 7mm（骑马钉爬移） */
   @top-left { content: "{{ cfg.name }}"; font: 7.5pt/5.5mm "HeiTi"; letter-spacing: .1em; color: var(--muted); vertical-align: top; padding-top: 4mm; }
 }
 @page :right {
-  @top-right-corner { content: counter(page); font: 500 8.5pt/5.5mm "HeiTi"; color: var(--muted); text-align: center; vertical-align: top; padding-top: 4mm; }
+  @top-right-corner { content: counter(page); font: 500 8.5pt/5.5mm "HeiTi"; color: var(--muted); text-align: center; vertical-align: top; padding-top: 4mm; padding-right: 3mm; }
   @top-right { content: string(book); font: 7.5pt/5.5mm "HeiTi"; letter-spacing: .1em; color: var(--muted); vertical-align: top; padding-top: 4mm; }
 }
 @page cover { margin: 0; background: {{ pal.field }}; @top-left { content: none; } @top-right { content: none; } @top-left-corner { content: none; } @top-right-corner { content: none; } }
@@ -74,7 +77,7 @@ body { margin: 0; }
 .divider .sec { margin-top: 5.5mm; }
 .divider .lab { font: 600 7.5pt "HeiTi"; letter-spacing: .3em; color: var(--accent); margin-bottom: 1.5mm; }
 .divider .pick { font: 600 10.5pt/1.6 var(--head); margin-bottom: 1.5mm; }
-.divider p { margin: 0; font: 10pt/1.7 var(--body); text-align: justify; color: #2E2B26; }
+.divider p { margin: 0; font: 10pt/1.7 var(--body); text-align: justify; color: var(--ink); }   /* 全刊文字只用墨/灰/红三色 */
 .divider p.lead { font: 10.5pt/1.75 var(--quote); }   /* 引子用引文字体 */
 
 /* ---------------- 正文 ---------------- */
@@ -85,12 +88,12 @@ body { margin: 0; }
 .body p { margin: 0 0 .7em; text-align: justify; text-indent: 2em; line-height: 1.75; orphans: 2; widows: 2; }   /* 段间留一点空，照《选择的悖论》 */
 .body h4 { font: 600 11.5pt/1.5 var(--head); text-align: center; margin: 7mm 0 3.5mm; break-after: avoid; }          /* 节标题：黑体居中 */
 .body h5 { font: 600 10.5pt/1.6 var(--head); margin: 4.5mm 0 1.5mm; break-after: avoid; }                            /* 小节标题：黑体靠左 */
-.body .verse { margin: 3mm 0 3mm 2em; font-family: var(--quote); line-height: 1.75; color: #35312B; }
-.body .epi { margin: 0 0 0 4em; font: 10.5pt/1.75 var(--quote); color: #35312B; text-align: justify; }
+.body .verse { margin: 3mm 0 3mm 2em; font-family: var(--quote); line-height: 1.75; color: var(--ink); }
+.body .epi { margin: 0 0 0 4em; font: 10.5pt/1.75 var(--quote); color: var(--ink); text-align: justify; }
 .body .epi-by { margin: 1mm 0 6mm; text-align: right; font: 10.5pt/1.75 var(--quote); color: var(--muted); }
 .body .epi + h4, .body .epi + p { margin-top: 6mm; }
 /* 引文：换楷体，左右缩进，照纸书 */
-.body p.quote { font-family: var(--quote); font-size: 10pt; margin: 0 1em .7em 2em; color: #35312B; }
+.body p.quote { font-family: var(--quote); font-size: 10pt; margin: 0 1em .7em 2em; color: var(--ink); }
 .body p:not(.quote) + p.quote, .body h4 + p.quote, .body h5 + p.quote, .body ul.list + p.quote { margin-top: 2.5mm; }
 .body p.quote + p:not(.quote) { margin-top: 2.5mm; }
 /* 条目：■ 悬挂缩进，照《选择的悖论》；带序号的不加 ■ */
@@ -107,12 +110,12 @@ body { margin: 0; }
 .body .box .bli { padding-left: 2em; text-indent: -2em; line-height: 1.7; margin: 0 0 .35em; text-align: justify; }
 .body .box figure { margin: 2mm 0 1.5mm; }
 .body .box figure img { max-height: 70mm; }
-.body figure { margin: 5mm 0; text-align: center; break-inside: avoid; }
-.body figure img { max-width: 100%; max-height: 105mm; width: auto; height: auto; }
+.body figure { margin: 5mm auto; text-align: center; break-inside: avoid; }   /* render 按 150ppi 给每个 figure 一个 max-width，居中 */
+.body figure img { max-width: 100%; max-height: 86mm; width: auto; height: auto; }   /* 高 ≤ 版心 1/2（验收 F2）；宽度上限由 render 按 150ppi 逐图给 */
 .body figcaption { margin-top: 2mm; font: 8.5pt/1.6 var(--head); color: var(--muted); }
 /* 脚注：小五号宋体（比正文小一号），注码用圈码①，正文里上标、注文里不上标；注文悬挂缩进，回行和首行文字对齐 */
 @counter-style circled { system: fixed; symbols: "①" "②" "③" "④" "⑤" "⑥" "⑦" "⑧" "⑨" "⑩" "⑪" "⑫" "⑬" "⑭" "⑮" "⑯" "⑰" "⑱" "⑲" "⑳"; suffix: ""; }
-.fn { float: footnote; font: 9pt/1.5 var(--body); color: var(--ink); text-align: justify; padding-left: 1.4em; text-indent: -1.4em; }
+.fn { float: footnote; footnote-policy: line; font: 9pt/1.5 var(--body); color: var(--ink); text-align: justify; padding-left: 1.4em; text-indent: -1.4em; }   /* 注文放不下时把注码所在行一起挪到下一页，注码注文同页 */
 .fn::footnote-call { content: counter(footnote, circled); font-size: 70%; vertical-align: super; line-height: 0; margin: 0 .05em; }
 .fn::footnote-marker { content: counter(footnote, circled); margin-right: .4em; }   /* 定宽空隙，不参与两端对齐的拉伸 */
 .body .cut { width: 12mm; border-top: .6pt solid var(--rule); margin: 4.5mm auto; }
@@ -159,7 +162,7 @@ body { margin: 0; }
     <div class="t">
       <div class="num">{{ "%02d"|format(loop.index) }}</div>
       <h2 class="bt" style="font-size: {{ p.title_pt }}pt">《{{ p.title_html|safe }}》</h2>
-      <div class="by">{{ p.author }}{% if p.year %}，{{ p.year }}{% endif %}{% if p.original_title %}<br>{{ p.original_title }}{% endif %}</div>
+      <div class="by">{{ p.author }}{% if p.year %}，{{ p.year }}{% endif %}{% if p.translator %}，{{ p.translator }} 译{% endif %}{% if p.original_title %}<br>{{ p.original_title }}{% endif %}</div>
     </div>
   </div>
   {% if p.context %}<div class="sec"><p class="lead">{{ p.context_html|safe }}</p></div>{% endif %}
@@ -176,12 +179,12 @@ body { margin: 0; }
       {% if b.type == "verse" %}<div class="verse">{{ b.html|safe }}</div>
       {% elif b.type == "epi" %}<div class="epi">{{ b.html|safe }}</div>
       {% elif b.type == "epi-by" %}<div class="epi-by">——{{ b.html|safe }}</div>
-      {% elif b.type == "img" %}<figure><img src="{{ b.src }}" alt="">{% if b.caption %}<figcaption>{{ b.caption|safe }}</figcaption>{% endif %}</figure>
+      {% elif b.type == "img" %}<figure style="{{ b.style }}"><img src="{{ b.src }}" alt="">{% if b.caption %}<figcaption>{{ b.caption|safe }}</figcaption>{% endif %}</figure>
       {% elif b.type == "h" %}{% if b.sub %}<h5>{{ b.html|safe }}</h5>{% else %}<h4>{{ b.html|safe }}</h4>{% endif %}
       {% elif b.type == "quote" %}<p class="quote">{{ b.html|safe }}</p>
       {% elif b.type == "list" %}<ul class="list">{% for it in b["items"] %}<li{% if it.num %} class="num"{% endif %}>{{ it.html|safe }}</li>{% endfor %}</ul>
       {% elif b.type == "box" %}<aside class="box">{% if b.title %}<div class="boxtitle">{{ b.title|safe }}</div>{% endif %}
-        {% for it in b["items"] %}{% if it.type == "img" %}<figure><img src="{{ it.src }}" alt="">{% if it.caption %}<figcaption>{{ it.caption|safe }}</figcaption>{% endif %}</figure>
+        {% for it in b["items"] %}{% if it.type == "img" %}<figure style="{{ it.style }}"><img src="{{ it.src }}" alt="">{% if it.caption %}<figcaption>{{ it.caption|safe }}</figcaption>{% endif %}</figure>
         {% elif it.type == "li" %}<div class="bli">{{ it.html|safe }}</div>
         {% elif it.type == "h" %}<div class="bh">{{ it.html|safe }}</div>
         {% else %}<p>{{ it.html|safe }}</p>{% endif %}{% endfor %}</aside>

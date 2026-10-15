@@ -7,6 +7,8 @@ cache/
 *.pdf
 reader.md
 person.yaml
+# 书单带「为什么收藏」的笔记原话；样例在 examples/books.example.yaml
+books.yaml
 
 # 开源字体用 scripts/fetch-fonts.sh 下载
 fonts/

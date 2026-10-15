@@ -7,5 +7,6 @@ pdfplumber
 pyyaml
 jinja2
 pillow
+opencc-python-reimplemented   # 繁体电子书转简体、书名繁简匹配（没装也能跑，只是不转）
 # 可选：run.py select --api / translate --api 才需要
 # anthropic

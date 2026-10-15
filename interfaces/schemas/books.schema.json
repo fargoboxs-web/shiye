@@ -14,6 +14,7 @@
           "display_title": {"type": "string", "description": "杂志里显示的书名，不填用 title"},
           "original_title": {"type": "string", "description": "外文原名"},
           "author": {"type": "string"},
+          "translator": {"type": "string", "description": "译者；不填时 prepare 从电子书元数据或版权页找"},
           "year": {"type": ["integer", "string"]},
           "file": {"type": "string", "description": "本地文件：epub / pdf / txt / md / json"},
           "url": {"type": "string"},

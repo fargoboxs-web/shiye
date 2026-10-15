@@ -17,6 +17,6 @@
 
 ## 格式
 
-见 `interfaces/schemas/books.schema.json`。每本：`title`、`original_title?`、`author`、`year?`、`file?`（本地文件路径）、`why_saved`、`rights?`（owned、public_domain、licensed）。
+见 `interfaces/schemas/books.schema.json`。每本：`title`、`original_title?`、`author`、`translator?`（译本的译者，知道就写，不写由 prepare 从电子书找）、`year?`、`file?`（本地文件路径）、`why_saved`、`rights?`（owned、public_domain、licensed）。`title` 是杂志上印的书名，写通行译名，不带副题和广告语。
 
 取不到书的留在书单里，`file` 空。`run.py prepare` 会报缺书，其余照常；缺书清单进检查报告。

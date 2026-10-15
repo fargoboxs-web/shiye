@@ -29,31 +29,44 @@ sys.path.insert(0, str(ROOT))
 
 from zine import fetch, inbox, parse, render, select, translate  # noqa: E402
 
-CONFIG = {"name": "拾页", "fonts": "B", "pad_to_4": False}
+CONFIG = {"name": "拾页", "fonts": "B", "pad_to_4": True}   # 总页数补成 4 的倍数（骑马钉；差的页补成空白笔记页，放在封底前）
 BOOK_EXT = (".epub", ".pdf", ".txt", ".md", ".json", ".html")
 
 
 def slug(s: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:40] or "book-" + hashlib.md5(s.encode()).hexdigest()[:6]
+    """书的 key：文件名和 selection.json 里的 book 字段。汉字保留（控制论与科学方法论 → 控制论与科学方法论），西文转小写连字符。"""
+    return re.sub(r"[^a-z0-9\u3400-\u9fff]+", "-", s.lower()).strip("-")[:40] or "book-" + hashlib.md5(s.encode()).hexdigest()[:6]
 
 
 def load_books(issue: Path) -> dict[str, dict]:
     return {p.stem: json.loads(p.read_text(encoding="utf-8")) for p in sorted((issue / "books").glob("*.json"))}
 
 
+try:
+    from opencc import OpenCC
+    _T2S = OpenCC("t2s")
+except ImportError:   # 没装 opencc 就不做繁简归一
+    _T2S = None
+
+
 def _norm(s: str) -> str:
-    return re.sub(r"[\s\W_]+", "", s).lower()
+    """比对书名用：去标点空格、小写、繁转简（books.yaml 写「无路之路」也能对上文件「無路之路.epub」）。"""
+    s = re.sub(r"[\s\W_]+", "", s).lower()
+    return _T2S.convert(s) if _T2S else s
 
 
 def find_local_book(e: dict, dirs: list[Path]) -> Path | None:
-    """books.yaml 没写 file 时，在 books/ 里按书名找同名文件。"""
-    names = [_norm(x) for x in (e.get("title"), e.get("original_title"), e.get("display_title")) if x]
-    for d in dirs:
-        if not d.is_dir():
-            continue
-        for p in sorted(d.iterdir()):
-            if p.suffix.lower() in BOOK_EXT and any(n and (n in _norm(p.stem) or _norm(p.stem) in n) for n in names):
-                return p
+    """books.yaml 没写 file 时，在 books/ 里按书名找同名文件。
+    中文书名（title / display_title）对上的优先于外文原名对上的：同一本书有中译本和原版两个文件时，取中译本（杂志全是中文，少翻一篇）。"""
+    tiers = [[_norm(x) for x in (e.get("title"), e.get("display_title")) if x],
+             [_norm(x) for x in (e.get("original_title"),) if x]]
+    for names in tiers:
+        for d in dirs:
+            if not d.is_dir():
+                continue
+            for p in sorted(d.iterdir()):
+                if p.suffix.lower() in BOOK_EXT and any(n and (n in _norm(p.stem) or _norm(p.stem) in n) for n in names):
+                    return p
     return None
 
 
@@ -80,6 +93,7 @@ def cmd_prepare(args) -> Path:
             local = find_local_book(e, [booklist.parent / "books", ROOT / "books"])
             if local:
                 e = {**e, "file": str(local)}
+                print(f"  《{e['title']}》没写 file，用本地文件 {local.name}")
         try:
             path, source = fetch.resolve(e, cache, booklist.parent)
         except fetch.BookNotFound as err:
@@ -94,14 +108,19 @@ def cmd_prepare(args) -> Path:
             book["cover"] = f"{key}.cover{cover[1]}"
         meta = fetch.lookup_metadata(e["title"], e.get("author") or book.get("author"))
         book.update({k: v for k, v in meta.items() if k not in book or k == "year"})
-        book.update({k: v for k, v in e.items() if k in ("author", "year", "why_saved", "rights")})
+        book.update({k: v for k, v in e.items() if k in ("author", "year", "why_saved", "rights", "translator")})
+        # 书名以 books.yaml 为准：电子书元数据里常是带副题和广告语的长串
+        if book.get("title") and book["title"] != e["title"]:
+            book["source_title"] = book["title"]
+        book["title"] = e["title"]
         book["display_title"] = e.get("display_title") or e["title"]
         book["original_title"] = e.get("original_title") or (e["title"] if e.get("display_title") else None)
         book["source"] = source + ("（公有领域）" if "Gutenberg" in source or e.get("public_domain") or e.get("rights") == "public_domain" else "") \
             + ("，繁体转简体" if simplified else "")
         (issue / "books" / f"{key}.json").write_text(json.dumps(book, ensure_ascii=False, indent=1), encoding="utf-8")
         books[key] = book
-        print(f"✓ {key}: {book.get('title')} — {len(book['chapters'])} 章 [{book['source']}]{'，有封面' if cover else '，没找到封面'}，插图 {n_img} 张")
+        print(f"✓ {key}: {book.get('title')} / {book.get('author', '')}{'，' + book['translator'] + ' 译' if book.get('translator') else ''}"
+              f" — {len(book['chapters'])} 章 [{book['source']}]{'，有封面' if cover else '，没找到封面'}，插图 {n_img} 张")
     if missing:
         lines = ["# 缺书", "", "下面这些书没有拿到全文，这一期先不做它们。补上文件（放进 books/ 或在 books.yaml 写 file:）再跑一次 prepare。", ""]
         lines += [f"- 《{t}》：{why}" for t, why in missing]

@@ -129,6 +129,20 @@ def hex_to_lab(h: str) -> tuple[float, float, float]:
     return round(L, 1), round(y, 3), round(math.hypot(a, b), 1)   # (L*, 相对亮度, 彩度 C*)
 
 
+def delta_e(h1: str, h2: str) -> float:
+    """两色的 CIE76 ΔE（验收 C7 用它量底色对拾页红的距离）"""
+    def lab(h):
+        r, g, b = (int(h[i:i + 2], 16) / 255 for i in (1, 3, 5))
+        lin = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in (r, g, b)]
+        y = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+        x = (0.4124 * lin[0] + 0.3576 * lin[1] + 0.1805 * lin[2]) / 0.95047
+        z = (0.0193 * lin[0] + 0.1192 * lin[1] + 0.9505 * lin[2]) / 1.08883
+        f = lambda t: t ** (1 / 3) if t > 0.008856 else 7.787 * t + 16 / 116
+        return 116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))
+    a, b = lab(h1), lab(h2)
+    return round(math.sqrt(sum((p - q) ** 2 for p, q in zip(a, b))), 1)
+
+
 def rgb_close(c, target, tol=0.02) -> bool:
     return isinstance(c, (tuple, list)) and len(c) == 3 and all(abs(a - b) < tol for a, b in zip(c, target))
 
@@ -460,8 +474,8 @@ def check_images(iss: Issue, rep: Report):
             if im["bottom"] > BOT + pad + 1: out.append(f"下出 {mm(im['bottom'] - BOT):.1f}mm")
             if out:
                 fail.append(f"第 {p} 页 {kind} 超出版心：{'、'.join(out)}")
-            if role == "article" and h > 105 * MM + 1:
-                fail.append(f"第 {p} 页 插图高 {mm(h):.1f}mm > 105mm 上限")
+            if role == "article" and h > 86 * MM + 1:   # 验收 F2：高 ≤ 86mm（版心 1/2）；模板 max-height 同值
+                fail.append(f"第 {p} 页 插图高 {mm(h):.1f}mm > 86mm 上限")
             if role == "divider" and abs(h - 65.6 * MM) > 0.5 * MM:
                 warn.append(f"第 {p} 页 书影高 {mm(h):.1f}mm（含阴影边应为 65.6mm）")
             # 原图检查（需要本机能找到图）
@@ -730,18 +744,17 @@ def check_tail_pages(iss: Issue, rep: Report, min_lines: int):
             fail.append(f"第 {e} 页（第 {k} 篇末页）正文只有 {len(body)} 行" + ("，整页只剩方框" if box and not body else ""))
     rep.add("⑨", f"篇末页正文 ≥ {min_lines} 行", "不通过" if fail else "通过",
             "；".join(fail) if fail else f"{len(iss.articles)} 篇篇末页正文都 ≥ {min_lines} 行", fail + ev)
-    # 篇幅：rules/editor/selection.md 5000–12000 字；最长篇页数 ≤ 最短篇 × 2
+    # 篇幅（rules/editor/selection.md、验收 W9）：篇数 3–6；每篇 5000–12000 汉字；全期 ≤ 96 页。「6–20 页」「长短比」W9 已删
     lens = [(k, e - s + 1, cnt) for (k, s, e, _), cnt in zip(iss.articles, chars_of)]
     if lens:
-        mx, mn = max(v for _, v, _ in lens), min(v for _, v, _ in lens)
         w = [f"第 {k} 篇 {v} 页 {c} 字" for k, v, c in lens]
         warn = []
-        if mx > 2 * mn: warn.append(f"最长 {mx} 页超过最短 {mn} 页的 2 倍")
+        if not 3 <= len(lens) <= 6: warn.append(f"篇数 {len(lens)}，超出 3–6")
+        if iss.n > 96: warn.append(f"全期 {iss.n} 页 > 96")
         for k, v, c in lens:
-            if not 6 <= v <= 20: warn.append(f"第 {k} 篇 {v} 页，超出 6–20 页")
             if not 5000 <= c <= 12000: warn.append(f"第 {k} 篇正文约 {c} 字，超出 5000–12000 字")
-        rep.add("⑨b", "篇幅（每篇 6–20 页、5000–12000 字、最长 ≤ 最短 × 2）", "警告" if warn else "通过",
-                "；".join(warn) if warn else f"最长 {mx} / 最短 {mn} 页，字数都在 5000–12000", w)
+        rep.add("⑨b", "篇幅（篇数 3–6、每篇 5000–12000 字、全期 ≤ 96 页）", "警告" if warn else "通过",
+                "；".join(warn) if warn else f"{len(lens)} 篇、{iss.n} 页，每篇字数都在 5000–12000", w)
 
 
 def check_runheads(iss: Issue, rep: Report):
@@ -957,10 +970,11 @@ def check_cover(iss: Issue, rep: Report):
             Lf, yf, Cf = hex_to_lab(f)
             ratio = (max(y, yf) + 0.05) / (min(y, yf) + 0.05)
             kind = "深色纸" if Lf < 40 and Cf < 20 else ("浅色纸" if Lf > 85 and Cf < 20 else "彩色纸")
-            ev.append(f"纸色 {f}（{kind}）：L* {Lf}、彩度 {Cf}，与底色 ΔL* {abs(L - Lf):.0f}，对比 {ratio:.1f}:1")
+            ev.append(f"纸色 {f}（{kind}）：L* {Lf}、彩度 {Cf}，与底色 ΔL* {abs(L - Lf):.0f}，对比 {ratio:.1f}:1，ΔE {delta_e(f, field)}")
             if kind == "深色纸" and ratio < 7: warn.append(f"深色纸 {f} 对底色对比 {ratio:.1f}:1 < 7")
             if kind == "浅色纸" and abs(L - Lf) < 18: warn.append(f"浅色纸 {f} 与底色 ΔL* 只有 {abs(L - Lf):.0f} < 18，印出来会和底色混在一起")
-            if kind == "彩色纸" and ratio < 2.5: warn.append(f"彩色纸 {f} 对底色对比 {ratio:.1f}:1 < 2.5")
+            if kind == "彩色纸" and delta_e(f, field) < 30:   # 验收 C7：底色对拾页红 ΔE（CIE76）≥ 30
+                warn.append(f"彩色纸 {f} 与底色 ΔE 只有 {delta_e(f, field)} < 30，纸和底色分不开")
         if not any(abs(hex_to_lab(f)[0] - hex_to_lab("#B5432B")[0]) < 12 and hex_to_lab(f)[2] > 40 and int(f[1:3], 16) > int(f[5:7], 16) for f in fills):
             warn.append("封面三纸色里没有拾页红（内页 accent #B5432B，封面可用 #D94F2B）：封面和内页没有共同的一色")
         if any(float(o) < 1 for o in ops):
@@ -975,10 +989,16 @@ def check_cover(iss: Issue, rep: Report):
 
 
 def check_cover_bitmap(iss: Issue, rep: Report):
-    """⑮b 封面封底摊平成一把扇子：书脊两侧 2mm 像素列颜色序列一致率 ≥ 95%；封面墨量（家用打印）"""
+    """⑮b 封面封底摊平成一把扇子：书脊两侧 2mm 像素列颜色序列一致率 ≥ 95%（只对 fan 图案；stack / scatter / svg 的封底是镜像，不要求接续）；封面墨量（家用打印）"""
     import tempfile
     from PIL import Image
     fail, warn, ev = [], [], []
+    motif = "fan"
+    if (iss.dir / "cover.json").exists():
+        try:
+            motif = json.loads((iss.dir / "cover.json").read_text(encoding="utf-8")).get("motif") or "fan"
+        except Exception:
+            pass
     with tempfile.TemporaryDirectory() as td:
         for tag, pg in (("c", 1), ("b", iss.n)):
             subprocess.run(["pdftoppm", "-r", "40", "-f", str(pg), "-l", str(pg), "-png", str(iss.pdf_path), f"{td}/{tag}"], capture_output=True)
@@ -995,8 +1015,10 @@ def check_cover_bitmap(iss: Issue, rep: Report):
     pb = [b.getpixel((W - 1 - x, y)) for y in range(H) for x in range(n)]
     same = sum(1 for u, v in zip(pa, pb) if max(abs(i - j) for i, j in zip(u, v)) < 24) / len(pa)
     ev.append(f"书脊两侧各 2mm 的像素列：封面左缘与封底右缘颜色一致率 {same:.0%}（40dpi 渲染）")
-    if same < 0.95:
+    if same < 0.95 and motif == "fan":
         fail.append(f"书脊两侧颜色序列一致率 {same:.0%} < 95%：摊平后前后封面在书脊处接不上，不是一整把扇子")
+    elif motif != "fan":
+        ev.append(f"图案是 {motif}，封底是封面的镜像，不要求书脊处接续")
     # 墨量：简单 RGB→CMYK 取 (C+M+Y+K)/4 的均值；深色面积 = 亮度 < 25% 的像素占比
     def cmyk(r, g, b):
         k = 1 - max(r, g, b) / 255
@@ -1011,7 +1033,7 @@ def check_cover_bitmap(iss: Issue, rep: Report):
     if ink > 0.30: warn.append(f"封面平均墨量 {ink:.0%} > 30%，80g 纸喷墨会卷、透到目录页；封面用 ≥ 120g 纸")
     if dark > 0.25: warn.append(f"封面深色面积 {dark:.0%} > 25%")
     rep.add("⑮b", "封面封底拼合与墨量", "不通过" if fail else ("警告" if warn else "通过"),
-            "；".join(fail + warn) if fail or warn else f"书脊处颜色一致率 {same:.0%}，摊平是一把扇子；墨量 {ink:.0%}", fail + warn + ev)
+            "；".join(fail + warn) if fail or warn else (f"书脊处颜色一致率 {same:.0%}，摊平是一把扇子；墨量 {ink:.0%}" if motif == "fan" else f"图案 {motif}；墨量 {ink:.0%}"), fail + warn + ev)
 
 
 # ---- 以下是硬指标里能顺手量的几条（审稿时发现的硬伤）
