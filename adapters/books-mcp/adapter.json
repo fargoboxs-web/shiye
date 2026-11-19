@@ -7,7 +7,9 @@
     "search_books",
     "get_book"
   ],
-  "needs_env": [],
+  "needs_env": [
+    "BOOKS_MCP_KEY"
+  ],
   "run": "agent 直接调 MCP 工具，见 adapters/books-mcp/README.md",
   "writes": "books/<key>.epub，并把 file 和 rights 写回 books.yaml"
 }

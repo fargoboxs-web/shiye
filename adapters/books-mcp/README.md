@@ -4,7 +4,7 @@
 
 ## 接上
 
-把 `mcp.example.json` 里 `books` 那一段抄进你的 agent 的 MCP 配置（Claude Code 是 `.mcp.json`，Codex 是 `~/.codex/config.toml`，Cursor 是 `.cursor/mcp.json`，其余看各自文档），把地址换成你拿到的服务地址。接上后 agent 的工具列表里会多出 `search_books` 和 `get_book`。
+把 `mcp.example.json` 里 `books` 那一段抄进你的 agent 的 MCP 配置（Claude Code 是 `.mcp.json`，Codex 是 `~/.codex/config.toml`，Cursor 是 `.cursor/mcp.json`，其余看各自文档），把地址换成你拿到的服务地址，并把你拿到的 key 设成环境变量 `BOOKS_MCP_KEY`（配置里用 `Authorization: Bearer` 请求头带上，key 不要写死在配置文件里）。地址和 key 向这个书库的维护者要，每个人一个 key，有每天和每月的取书上限。接上后 agent 的工具列表里会多出 `search_books` 和 `get_book`。
 
 ## 两个工具
 
@@ -21,6 +21,8 @@
 - 没有 `get_book_toc` 和 `get_chapter`，拆章交给 `run.py prepare`。
 
 ## 要注意的
+
+- 工具返回「超出限额」时不要重试，把这本书记进 `缺书.md`，请读者自己给文件。
 
 - 一次只回一本，不合适就换个书名写法再搜，不要硬用。
 - 优先 EPUB；只有扫描版 PDF 的书当作拿不到，记进 `缺书.md`。
