@@ -28,6 +28,7 @@ python3 run.py prepare books.yaml --issue issues/<日期>   # 拿书、拆章节
 python3 run.py translate issues/<日期>            # 列出非中文的篇，AI 翻译
 #   AI：写 issues/<日期>/cover.json（刊名两个字、配色、图案）
 python3 run.py render issues/<日期>               # → <刊名>-<日期>.pdf
+python3 run.py render issues/<日期> --style B --out issues/<日期>/<刊名>-<日期>-B.pdf   # 篇首页的另一种排法，两版都出
 python3 run.py check issues/<日期>                # 硬指标 → 检查报告.md
 ```
 
@@ -35,7 +36,7 @@ python3 run.py check issues/<日期>                # 硬指标 → 检查报告
 
 | 想改 | 文件 |
 |---|---|
-| 选篇、引子、摘要、脚注的写法 | `rules/editor/` 对应文件 |
+| 选篇、导语、「本期选读」说明、脚注的写法 | `rules/editor/` 对应文件 |
 | 刊名、封面的风格 | `rules/editor/title.md`、`cover.md` |
 | 字体、字号、页面、脚注版式、封面版式 | `rules/typesetting/` 先改说明，再改 `templates/issue.html`、`zine/render.py` |
 | 验收什么、不过怎么办 | `rules/quality/验收.md`，脚本 `zine/check.py` |
@@ -49,3 +50,13 @@ skill 不自带任何书源。书来自读者自己的电子书（放 `books/`�
 ## 不进仓库的东西
 
 `inbox/`、`work/`、`issues/`、`books/`、`reader.md`、`fonts/`、`*.pdf`、`.env`——笔记是隐私，书有版权，字体另下，密钥只在环境变量里。见 `.gitignore`。
+
+## 还没做的
+
+按读者印完第 3 期后的反馈排的。
+
+1. **内页和封面分成两个文件输出**：内页第一页是目录（右页）、总页数为偶数；另出封面展开图（封底 + 书脊 + 封面，带出血，书脊宽度可配）。原因见 `rules/typesetting/printing.md`。
+2. **目录背面的编者按页**：目录之后单独一页。由 AI 根据读者这段时间记的、收藏的、在想的东西写一段开篇，像编辑做的铺垫，不要一翻开就是第一篇。写法守 `rules/editor/context.md`。
+3. **页数预估**：`prepare` 之后就按字数估出每篇页数，选篇时直接看到总页数。
+4. `rules/quality/验收.md` 前几节里封面、扉页的条款还是第 2 期的写法，要按新版式整理一遍。
+5. 字体从 GitHub 下载，国内网络可能很慢，需要一个备用地址。

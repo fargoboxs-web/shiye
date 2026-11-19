@@ -1,0 +1,10 @@
+/* 「底下」：七层地层，一层一篇。封面地层在下半页；封底整页是最深那一层的颜色，七层压在页顶，刊名和日期在左下角。
+   这是一个可以照着改的例子：换曲线、换颜色、换刊名位置。 */
+@page cover { background: #F3EEE2; }
+@page back { background: #1E2A30; }
+.cover { color: #1E2A30; }
+.backcover { color: #F3EEE2; }
+.cover .mast { position: absolute; left: 12.3mm; right: auto; top: 13.2mm; font: 400 65pt/1.05 "KaiTi"; text-align: left; }
+.cover .date { position: absolute; left: 132.4mm; right: auto; top: 14.6mm; width: 9pt; font: 9pt/3.49mm "SongTi"; letter-spacing: 0; text-align: center; }
+.backcover .mast { position: absolute; left: 12.6mm; top: 172.2mm; font: 400 34pt/1.05 "KaiTi"; text-align: left; }
+.backcover .date { position: absolute; left: 27.6mm; top: 168.1mm; width: 9pt; font: 9pt/3.49mm "SongTi"; letter-spacing: 0; text-align: center; }

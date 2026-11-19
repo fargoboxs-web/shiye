@@ -101,7 +101,7 @@ def validate(selection: dict, books: dict[str, dict]) -> list[str]:
                 problems.append(f"{tag}.notes[{n}]: 要有 term 和 note")
             elif note["term"] not in text:
                 problems.append(f"{tag}.notes[{n}]: 正文里找不到「{note['term']}」")
-    for f in ("number", "date"):
+    for f in ("date",):          # 期数可以不填（interfaces/schemas/selection.schema.json）
         if not selection.get("issue", {}).get(f):
             problems.append(f"issue: 缺少 {f}")
     return problems

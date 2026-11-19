@@ -8,8 +8,9 @@
   python3 run.py prepare books.yaml [--issue DIR]       # 拿书、拆章节 → issues/<日期>/books/、candidates.md；缺书列出、不中断
   python3 run.py show <期目录> <book> <章节号>             # 看某一章的全文（带段落编号）
   python3 run.py translate <期目录> [--api]               # 列出不是中文的选篇，AI 在会话里翻；--api 用 Claude API 翻
-  python3 run.py render <期目录> [--fonts A|B|C|D] [--out PDF]   # 校验 selection.json、读 cover.json，排成 PDF
-  python3 run.py check <期目录> [--booklet]               # 按 rules/quality/验收.md 2.1 查 PDF → <期目录>/检查报告.md
+  python3 run.py render <期目录> [--fonts A|B|C|D] [--style A|B] [--out PDF]   # 校验 selection.json、读 cover.json，排成 PDF
+                                                        # 期目录里有 封面.html / 封底.html / 封面.css 时用它们做封面
+  python3 run.py check <期目录> [--booklet] [--pdf PDF]             # 按 rules/quality/验收.md 2.1 查 PDF → <期目录>/检查报告.md
   python3 run.py select <期目录> --api                    # 可选：用 Claude API 自动选篇（需要 ANTHROPIC_API_KEY）
 """
 from __future__ import annotations
@@ -193,6 +194,13 @@ def cmd_render(args) -> Path:
         sys.exit("还有选篇不是中文，先跑 `run.py translate`：" + ", ".join(f"{p['book']} 第 {p['chapter']} 章" for p in untranslated))
     cover = load_cover(issue)
     name = cover.get("title") or CONFIG["name"]
+    # cover.json 里和整期配色有关的几项交给排版：每篇一个颜色、封面底色、标签颜色、扉页排法
+    for k in ("layers", "paper", "label_colors", "style"):
+        if cover.get(k):
+            sel["issue"][k] = cover[k]
+    sel["issue"]["name"] = name
+    if getattr(args, "style", None):        # 扉页排法 A（色块）/ B（白底加索引条），见 rules/typesetting/divider.md
+        sel["issue"]["style"] = args.style
     out = Path(args.out) if args.out else issue / f"{name}-{issue.name}.pdf"
     cfg = {**CONFIG, "name": name, "cover": cover, "fonts": args.fonts or CONFIG.get("fonts", "B")}
     pages = render.render(sel, books, out, cfg, issue_dir=issue)
@@ -208,6 +216,8 @@ def cmd_check(args) -> bool:
         cmd.append("--booklet")
     if args.out:
         cmd += ["--out", args.out]
+    if getattr(args, "pdf", None):
+        cmd += ["--pdf", args.pdf]
     return subprocess.run(cmd).returncode == 0
 
 
@@ -219,8 +229,8 @@ def main():
     p = sub.add_parser("show"); p.add_argument("issue"); p.add_argument("book"); p.add_argument("chapter")
     p = sub.add_parser("select"); p.add_argument("issue"); p.add_argument("--api", action="store_true")
     p = sub.add_parser("translate"); p.add_argument("issue"); p.add_argument("--api", action="store_true")
-    p = sub.add_parser("render"); p.add_argument("issue"); p.add_argument("--fonts", help="字体组合 A/B/C/D，见 rules/typesetting/fonts.md"); p.add_argument("--out")
-    p = sub.add_parser("check"); p.add_argument("issue"); p.add_argument("--booklet", action="store_true", help="骑马钉：页数不是 4 的倍数算不通过"); p.add_argument("--out")
+    p = sub.add_parser("render"); p.add_argument("issue"); p.add_argument("--fonts", help="字体组合 A/B/C/D，见 rules/typesetting/fonts.md"); p.add_argument("--out"); p.add_argument("--style", choices=["A", "B"], help="扉页排法：A 色块 / B 白底加索引条")
+    p = sub.add_parser("check"); p.add_argument("issue"); p.add_argument("--booklet", action="store_true", help="骑马钉：页数不是 4 的倍数算不通过"); p.add_argument("--out"); p.add_argument("--pdf", help="查哪一份 PDF（比如方案 B 那份）")
     args = ap.parse_args()
     if args.cmd == "check":
         sys.exit(0 if cmd_check(args) else 1)

@@ -1,6 +1,6 @@
 ---
 name: shiye
-description: 拾页：把一个人的笔记和收藏做成一本可打印的 A5 杂志 PDF。读笔记写读者画像、找出书、取书、选篇、写引子摘要脚注、翻译、定刊名封面、排版、质检。用户说"做一期杂志""从收藏夹做一本书""拾页""帮我朋友做一本"时用。
+description: 拾页：把一个人的笔记和收藏做成一本可打印的 A5 杂志 PDF。读笔记写读者画像、找出书、取书、选篇、写导语和脚注、翻译、定刊名封面、排版、质检。用户说"做一期杂志""从收藏夹做一本书""拾页""帮我朋友做一本"时用。
 ---
 
 # 拾页
@@ -20,12 +20,12 @@ description: 拾页：把一个人的笔记和收藏做成一本可打印的 A5 
 3. **书单**（`rules/editor/booklist.md`）→ `books.yaml`（格式 `interfaces/schemas/books.schema.json`）。读者点名想读的排最前。
 4. **取书**（`interfaces/book-source.md`）。`books/` 里有的直接用；没有就问书库 MCP，存进 `books/`，把 `file:` 和 `rights` 写回 `books.yaml`；都没有就留着，下一步会记进缺书。不编造全文，不用来源不明的文本。
 5. **拆书**：`python3 run.py prepare books.yaml --issue issues/<日期>` → `candidates.md`（每章开头几百字、篇幅「约 N 字」）、`books/*.json`、插图、封面；缺书写进 `缺书.md`，其余照常。没写 `file:` 的书按书名在 `books/` 里找（繁简通用，中译本优先于原版），用了哪个文件会打印出来，看一眼对不对；电子书有中译本就用中译本，少翻一篇。书名、译者以 `books.yaml` 为准，电子书元数据里的长副题不上杂志。
-6. **选篇与写作**。先读 `rules/editor/language.md`，再按 `selection.md` 选、`context.md` 写引子、`summary.md` 写摘要、`footnotes.md` 写脚注。用 `python3 run.py show issues/<日期> <book> <章节号>` 读候选全文；篇幅看「约 N 字」，超过 12000 字的章要给 `excerpt`。脚注的 `term` 从 `show` 的输出里原样复制（prepare 已把引号、间隔号、破折号归一）。写 `issues/<日期>/selection.json`（格式 `interfaces/schemas/selection.schema.json`）。
+6. **选篇与写作**。先读 `rules/editor/language.md`，再按 `selection.md` 选（5–6 篇、全期 80–100 页，选的时候就估页数）、`context.md` 写导语、`summary.md` 写「本期选读」说明、`footnotes.md` 写脚注。用 `python3 run.py show issues/<日期> <book> <章节号>` 读候选全文；篇幅看「约 N 字」，超过 12000 字的章要给 `excerpt`。脚注的 `term` 从 `show` 的输出里原样复制（prepare 已把引号、间隔号、破折号归一）。写 `issues/<日期>/selection.json`（格式 `interfaces/schemas/selection.schema.json`）。
 7. **翻译**（`rules/editor/translation.md`）：`python3 run.py translate issues/<日期>` 列出不是中文的篇；你在会话里翻，一段对一段写成它指定的 `.json`；再跑一次确认全是中文。
-8. **刊名与封面**（`rules/editor/title.md`、`cover.md`）→ `issues/<日期>/cover.json`。刊名两个字，从读到和选出的内容里定；配色、图案、种子自己选。
-9. **排版**：`python3 run.py render issues/<日期>` → `<刊名>-<日期>.pdf` 和同名 `.html`。版式是固定的（`rules/typesetting/`），不在成品上改。
-10. **质检**（`rules/quality/验收.md`）。`python3 run.py check issues/<日期>` → `检查报告.md`；硬指标不过，改中间产物重排，不交付。再把 PDF 转成图翻一遍软指标（2.2 节）：版面挤不挤、引文条目方框有没有误判、封面好不好看、刊名贴不贴切、引子像不像人话。不过就回到第 6 或第 8 步。
-11. **交付**：PDF、`检查报告.md`、`缺书.md`（如有）。说清楚什么没做到、为什么。
+8. **刊名与封面**（`rules/editor/title.md`、`cover.md`）→ `issues/<日期>/cover.json`。刊名两个字，从读到和选出的内容里定。封面每期重新设计、和内容呼应：读完全部选篇，找出它们共同在讲的一件事，取一个能画的意象，在期目录里写 `封面.html`、`封底.html`、`封面.css`（例子 `examples/cover-strata/`），每篇一个颜色写进 `cover.json` 的 `layers`。出两三个小样让读者挑。来不及就用 `motif` 兜底。
+9. **排版**：`python3 run.py render issues/<日期>` → `<刊名>-<日期>.pdf` 和同名 `.html`（篇首页方案 A）；再 `python3 run.py render issues/<日期> --style B --out issues/<日期>/<刊名>-<日期>-B.pdf` 出方案 B，两版都给读者（`rules/typesetting/divider.md`）。第一次渲染会自动微调版面，约两分钟，修法记在 `版面微调.json`；改了选篇或节选范围要删掉它。版式是固定的（`rules/typesetting/`），不在成品上改。
+10. **质检**（`rules/quality/验收.md`）。`python3 run.py check issues/<日期>` → `检查报告.md`（B 版加 `--pdf <B 版> --out issues/<日期>/检查报告-B.md`）；硬指标不过，改中间产物重排，最多三轮，还在的如实报告是哪几页、什么问题。再把 PDF 转成图翻一遍软指标（2.2 节）：版面挤不挤、引文条目方框有没有误判、封面好不好看、刊名贴不贴切；导语照 `rules/editor/context.md` 的清单逐条对，几篇并排读，像一个模子出来的就重写。不过就回到第 6 或第 8 步。
+11. **交付**：A、B 两版 PDF、`检查报告.md`、`缺书.md`（如有）。说清楚什么没做到、为什么。读者要送印时读 `rules/typesetting/printing.md`。读者对成品的意见记进 `reader.md`，下一期先读；不要把某个读者的偏好写进代码和模板。
 
 ## 原则
 
@@ -43,9 +43,11 @@ issues/<日期>/
   books/<key>.json, <key>.cover.*, <key>.img/   # prepare 产出
   candidates.md                                 # prepare 产出
   缺书.md                                       # 有缺书时
-  selection.json                                # 你写：选篇、引子、摘要、脚注
+  selection.json                                # 你写：选篇、导语、说明、脚注
   zh/<book>.<章>.json                            # 你写：译文（外文书才有）
-  cover.json                                    # 你写：刊名、配色、图案
+  cover.json                                    # 你写：刊名、配色、图案、每篇的颜色
+  封面.html / 封底.html / 封面.css               # 你写（可选）：这一期单独设计的封面
+  版面微调.json                                 # render 产出：自动修版面的记录
   <刊名>-<日期>.pdf / .html                       # render 产出
   检查报告.md                                   # check 产出
 ```
