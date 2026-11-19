@@ -17,6 +17,8 @@ import time
 import urllib.parse
 import urllib.request
 
+import sys as _sys; from pathlib import Path as _P; _sys.path.append(str(_P(__file__).resolve().parents[1]))
+import env as _env; _env.load()  # 仓库根的 .env
 API = "https://api.tikhub.io/api/v1/xiaohongshu/app_v2/get_user_faved_notes"
 
 

@@ -12,6 +12,10 @@ python3 run.py adapters      # 列出现在装了哪些、哪些能用、缺什�
 | `xiaohongshu/` | 一个人公开的小红书收藏 → `inbox/` | `TIKHUB_API_KEY`，加上 `getnote/`；或者只要 `APIFY_TOKEN` |
 | `books-mcp/` | 按书名取整本书 → `books/` | agent 接上书库 MCP |
 
+## 凭证
+
+把 `.env.example` 抄成 `.env` 填上，或者直接设环境变量。`.env` 不进 git，脚本不打印里面的值。
+
 ## 可拔插是什么意思
 
 - **不用的不用管。** 缺凭证的适配器只会在 `run.py adapters` 里显示「没接」，流程不报错。

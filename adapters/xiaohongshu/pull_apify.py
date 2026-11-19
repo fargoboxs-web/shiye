@@ -22,6 +22,8 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import sys as _sys; from pathlib import Path as _P; _sys.path.append(str(_P(__file__).resolve().parents[1]))
+import env as _env; _env.load()  # 仓库根的 .env
 API = "https://api.apify.com/v2"
 FAV_ACTOR = "toolzerhub~rednote-xiaohongshu-favorites-scraper"
 POST_ACTOR = "toolzerhub~rednote-xiaohongshu-post-scraper"

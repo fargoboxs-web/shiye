@@ -76,6 +76,7 @@ def cmd_adapters(args):
     """列出 adapters/ 下的插件：能不能用，缺什么。只看环境变量在不在，不打印值。"""
     import os
     root = ROOT / "adapters"
+    sys.path.append(str(root)); import env; env.load()
     metas = {}
     for p in sorted(root.glob("*/adapter.json")):
         try:

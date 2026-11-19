@@ -84,8 +84,10 @@ def main():
     ap.add_argument("--timeout", type=int, default=1200, help="单条等 Get笔记 处理的最长秒数")
     ap.add_argument("--delete-after", action="store_true", help="抓完把这次在 Get笔记 里建的笔记移入回收站（默认不删）")
     args = ap.parse_args()
+    import os
+    args.profile = args.profile or os.environ.get("XHS_PROFILE")
     if not (args.profile or args.ids or args.favs):
-        ap.error("给主页链接，或者 --favs / --ids")
+        ap.error("给主页链接（或在 .env 里填 XHS_PROFILE），或者 --favs / --ids")
 
     t0 = time.time()
     if args.ids:
