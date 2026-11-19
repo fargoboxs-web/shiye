@@ -31,18 +31,27 @@
 1. 读完全部选篇，写一句话：这几篇共同在讲什么。这句话只给自己看。
 2. 从里面取一个能画出来的意象。例子：七篇都在讲事情表面之下的结构，刊名「底下」，图是七层地层，一层一篇。
 3. 图里元素的个数等于篇数，每个元素的颜色就是那一篇的颜色，写进 `cover.json` 的 `layers`。封面、目录色带、篇首页就成了一套。
-4. 出两三个方向的小样让读者挑。
+4. 出两三个方向的小样让读者挑：每个方向写好三个文件、`run.py render` 一次，再 `python3 run.py covers issues/<日期> --name 方向1` 把封面封底存成图（在期目录的 `小样/` 里），然后换下一个方向。读者不在场时自己挑一个，把其余的图留着。
 
-做法：在期目录里放 `封面.html`、`封底.html`（各是那一页 `<section>` 里面的内容：一张整页 SVG 加刊名、日期两个 `<div>`，可以用 `{{ cfg.name }}`、`{{ cn_date[0] }}{{ cn_date[1] }}`）和 `封面.css`（接在样式表最后，用 `@page cover { background: … }`、`@page back { … }` 定底色，定刊名位置和字号）。有这三个文件就不画 `motif`。例子在 `examples/cover-strata/`。
+做法：在期目录里放 `封面.html`、`封底.html`（各是那一页 `<section>` 里面的内容：一张整页 SVG 加刊名、日期两个 `<div>`，可以用 `{{ cfg.name }}`、`{{ cn_date[0] }}{{ cn_date[1] }}`）和 `封面.css`（接在样式表最后，用 `@page cover { background: … }`、`@page back { … }` 定底色，定刊名位置和字号）。有这三个文件就不画 `motif`，`palette` 也不再起作用。例子在 `examples/cover-strata/`。
+
+三个文件具体怎么写：
+
+- SVG 写成 `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 148 210" width="148mm" height="210mm">`，一个单位就是 1mm，铺满整页。
+- 刊名和日期沿用模板的 class，位置和字体就都是默认的（右上角竖排）：`<div class="mast"><div>{{ cfg.name[0] }}</div><div>{{ cfg.name[1:] }}</div></div>` 和 `<div class="date"><div>{{ cn_date[0] }}</div><div>{{ cn_date[1] }}</div></div>`。想挪位置、改字号，在 `封面.css` 里写 `.cover .mast { … }`、`.cover .date { … }`（封底是 `.backcover`）。质检从 `.mast` 读刊名，封面和封底都要有汉字日期。
+- 封底至少放一张 SVG 和落款：`<div class="colophon"><div>{{ cfg.name }}</div><div>{{ cn_date[0] }}</div><div>{{ cn_date[1] }}</div></div>`（默认在左上角，小字）。也可以像例子那样在封底放小一号的 `.mast` 和 `.date`。
+- 底色只在 `cover.json` 的 `paper` 写一次，封面和封底都会用它。封底想用别的底色，才在 `封面.css` 里写 `@page back { background: … }`。
+- 上面「风格」一节里的要求（抽象几何、不用渐变、封面上只有刊名和日期）在这条路线上照样算数；三色纸、对比度那几条数字只管 `motif`。
 
 `cover.json` 里和整期配色有关的字段：
 
 | 字段 | 含义 | 不填时 |
 |---|---|---|
-| `layers` | 每篇一个颜色，按篇的顺序 | 都用封面底色 |
+| `layers` | 每篇一个颜色，按篇的顺序。它会铺成方案 A 篇首页的整块色块，上面压标题：深色块（大致比中灰深）上标题自动反白，浅色块上是黑字，所以不要选半深不浅的颜色，排完翻一遍每篇的篇首页 | 都用封面底色 |
 | `paper` | 封面底色，第一篇篇首页顶上那一条用它 | 调色板的底色 |
 | `label_colors` | 「本期选读」和方案 B 序号的颜色，每篇一个 | 把 `layers` 自动压暗 |
 | `style` | 篇首页排法 `A` 或 `B`，见 `../typesetting/divider.md` | `A` |
+| `divider_edge` | 方案 A 篇首页色块的边：`straight` 直边，`wave` 波浪边。只有封面本身是波浪、地层这类意象时才用 `wave` | `straight` |
 
 单独设计时封底不必是封面的镜像，底色也可以不同。屏幕颜色印出来会变暗变浊，橙和绿尤其明显，定色时往亮、往纯里偏一点。读者给了设计稿时量着稿子做，见 `../typesetting/covers.md`。
 

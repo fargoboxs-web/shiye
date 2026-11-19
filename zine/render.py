@@ -402,7 +402,7 @@ def _label_color(c: str) -> str:
     return "#%02X%02X%02X" % (round(r * 255), round(g * 255), round(b * 255))
 
 
-# 扉页色块的波浪边：Claude Design 定稿里的三条曲线（坐标是 420×595.5 的画布），七篇按 1、2、3 轮着用，
+# 扉页色块的波浪边（divider_edge: wave 时用）：「底下」那一期设计稿里的三条曲线（坐标是 420×595.5 的画布），七篇按 1、2、3 轮着用，
 # 最后一篇和第 3 篇同一条。照原稿逐点抄的，不要改成随机生成。
 _WAVES = [
     "M 0 19.5 C 90.75 7.5 180.75 25.5 263.25 15 C 345.75 4.5 375.75 6 420 18 L 420 294 C 353.25 310.5 270.75 288 188.25 298.5 C 105.75 309 68.25 313.5 0 295.5 L 0 19.5 Z",
@@ -411,9 +411,13 @@ _WAVES = [
 ]
 
 
-def _divider_art(k: int, color: str, prev: str) -> str:
-    """扉页上半的色块：页顶露一条上一层的颜色（高 15.9mm），色块上下两条边是波浪线"""
-    d = _WAVES[2 if k == 6 else k % 3]
+_STRAIGHT = "M 0 17 L 420 17 L 420 297 L 0 297 Z"
+
+
+def _divider_art(k: int, color: str, prev: str, edge: str = "straight") -> str:
+    """扉页上半的色块：页顶露一条上一篇的颜色。色块的边默认是直的；cover.json 里 divider_edge 写 wave 时
+    上下两条边是波浪线（「底下」那一期的地层，见 examples/cover-strata/）。"""
+    d = _WAVES[2 if k == 6 else k % 3] if edge == "wave" else _STRAIGHT
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 595.5" preserveAspectRatio="none" width="148mm" height="210mm">'
             f'<rect x="0" y="0" width="420" height="45" fill="{prev}"/><path d="{d}" fill="{color}"/></svg>')
 
@@ -575,7 +579,7 @@ def _layout_fixes(doc, pieces: list[dict], starts: list[int], last: int, tried: 
 def render(selection: dict, books: dict[str, dict], out_pdf: Path, config: dict, issue_dir: Path | None = None) -> int:
     from weasyprint import HTML
 
-    # 刊名每期换成本期的两个字（selection.json 里 issue.name）；封面、页眉、封底落款都跟着换。没写就用 config 里的。
+    # 刊名每期换成本期的两个字（issue.name，run.py 从 cover.json 的 title 抄进来）；封面、页眉、封底落款都跟着换。没写就用 config 里的。
     if selection["issue"].get("name"):
         config = {**config, "name": selection["issue"]["name"]}
     issue_dir = issue_dir or out_pdf.parent   # 译文、封面、插图都在期目录里；--out 另存时要单独给
@@ -602,14 +606,18 @@ def render(selection: dict, books: dict[str, dict], out_pdf: Path, config: dict,
         f = issue_dir / name
         ctx[key] = env.from_string(f.read_text(encoding="utf-8")).render(**ctx) if f.exists() else ""
 
-    # 扉页和目录的颜色：selection.json 的 issue.layers 给每篇一个颜色（一般就是封面上那几层的颜色），没给就用封面底色
+    # 单独设计的封面：cover.json 写了 paper 就先把封面、封底的底色设成它，封面.css 里再写 @page 可以盖掉
+    if ctx["cover_html"] and selection["issue"].get("paper"):
+        ctx["cover_css"] = "@page cover { background: %s; }\n@page back { background: %s; }\n" % ((selection["issue"]["paper"],) * 2) + ctx["cover_css"]
+
+    # 扉页和目录的颜色：issue.layers（run.py 从 cover.json 抄进来）给每篇一个颜色（一般就是封面上那几层的颜色），没给就用封面底色
     layers = list(selection["issue"].get("layers") or [])
     paper0 = selection["issue"].get("paper") or pal["field"]
     for k, p in enumerate(pieces):
         c = layers[k % len(layers)] if layers else pal["field"]
         prev = (layers[(k - 1) % len(layers)] if k else paper0) if layers else paper0
         labs = selection["issue"].get("label_colors") or []      # 「本期选读」和方案 B 序号的颜色：设计稿里是逐层挑的，有就用
-        p.update(color=c, dark=_lum(c) < 0.47, label_color=labs[k] if k < len(labs) else _label_color(c), art=_divider_art(k, c, prev))
+        p.update(color=c, dark=_lum(c) < 0.47, label_color=labs[k] if k < len(labs) else _label_color(c), art=_divider_art(k, c, prev, selection["issue"].get("divider_edge") or "straight"))
         if p.get("cover_path"):
             p["cover_url_plain"] = p["cover_url"]                      # 白底上的书影（方案 B 用）
             p["cover_url"] = shadowed(p["cover_path"], c).as_uri()     # 色块上的书影（方案 A 用）

@@ -114,6 +114,15 @@
       ],
       "default": "A",
       "description": "篇首页排法，见 rules/typesetting/divider.md"
+    },
+    "divider_edge": {
+      "type": "string",
+      "enum": [
+        "straight",
+        "wave"
+      ],
+      "default": "straight",
+      "description": "方案 A 篇首页色块的边：straight 直边；wave 波浪边（地层那种封面才用）"
     }
   }
 }

@@ -1004,7 +1004,7 @@ def check_cover(iss: Issue, rep: Report):
     if back_field and back_field != cmp_field: fail.append(f"封底底色 {back_field} ≠ 封面 {cmp_field}")
     # 三纸色对底色的对比：黑 ≥ 7:1、米白 ΔL* ≥ 18、第三色对比 ≥ 2.5:1；纸不该透明
     svg = re.search(r'<section class="cover">(.*?)</section>', iss.html, re.S)
-    custom = bool(svg) and 'transform="rotate(' not in svg.group(1)     # 每期单独设计的封面（期目录里的 封面.html）
+    custom = bool(svg) and ((iss.dir / "封面.html").exists() or 'transform="rotate(' not in svg.group(1))     # 每期单独设计的封面（期目录里的 封面.html）
     if svg and custom:
         # 单独设计的封面，封底可以和封面不同底色（比如「底下」封底是整页深色），这一条只记不判
         for f in [f for f in fail if f.startswith("封底底色")]:
@@ -1016,7 +1016,7 @@ def check_cover(iss: Issue, rep: Report):
         layers = [str(c).upper() for c in (iss.sel.get("issue", {}).get("layers") or [])]
         if layers:
             lost = [c for c in layers if c not in fills]
-            ev.append(f"selection.json 的 issue.layers {layers}")
+            ev.append(f"cover.json 的 layers {layers}")
             if lost: warn.append(f"扉页和目录用的颜色 {lost} 不在封面上：内页的颜色应取自封面")
     elif svg:
         fills = []
@@ -1067,7 +1067,7 @@ def check_cover_bitmap(iss: Issue, rep: Report):
     same = sum(1 for u, v in zip(pa, pb) if max(abs(i - j) for i, j in zip(u, v)) < 24) / len(pa)
     ev.append(f"书脊两侧各 2mm 的像素列：封面左缘与封底右缘颜色一致率 {same:.0%}（40dpi 渲染）")
     _cv = re.search(r'<section class="cover">(.*?)</section>', iss.html, re.S)
-    if same < 0.95 and _cv and 'transform="rotate(' not in _cv.group(1):
+    if same < 0.95 and _cv and ((iss.dir / "封面.html").exists() or 'transform="rotate(' not in _cv.group(1)):
         ev.append("本期封面是单独设计的，封面封底不要求在书脊处接上，这一条不判")
     elif same < 0.95:
         fail.append(f"书脊两侧颜色序列一致率 {same:.0%} < 95%：摊平后前后封面的图案在书脊处接不上")
