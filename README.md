@@ -1,12 +1,12 @@
 # 拾页 shiye
 
-把一个人的笔记和收藏做成一本可打印的 A5 杂志 PDF。这是一个 Claude Code skill：AI 做判断（读懂这个人、找出书、选篇、写引子摘要脚注、定刊名封面），脚本做确定性的事（拆书、排版、质检）。
+把一个人的笔记和收藏做成一本可打印的 A5 杂志 PDF。这是一个给 AI agent 用的 skill，不绑定哪一家：Claude Code、Codex、Cursor、Gemini CLI 或别的能读写文件、能跑命令的 agent 都可以。AI 做判断（读懂这个人、找出书、选篇、写引子摘要脚注、定刊名封面），脚本做确定性的事（拆书、排版、质检）。
 
 - 入口：`SKILL.md`（11 步，每步指向一个规则文件）
 - 规则：`rules/`（编辑判断 `editor/`、版式 `typesetting/`、验收 `quality/`），一个话题一个文件
 - 接口：`interfaces/`（收件箱 `inbox/`、笔记来源 MCP、书库 MCP，以及中间产物的 JSON Schema）
 - 代码：`run.py` + `zine/`（拆书、排版、质检、收件箱）、`templates/issue.html`
-- 适配器（可选）：`adapters/`（Get笔记 批量存入 inbox 的脚本；小红书收藏夹的导出步骤）
+- 适配器（可选，可拔插）：`adapters/`（Get笔记、小红书公开收藏、书库 MCP；`python3 run.py adapters` 看哪些能用，怎么加新的见 `adapters/README.md`）
 - 示例：`examples/2026-10-13/`（一期的 selection.json、cover.json、检查报告；读者画像是匿名样例）
 
 ## 安装
@@ -18,7 +18,7 @@ bash scripts/fetch-fonts.sh        # 三种开源字体（Noto Serif SC、Noto S
 
 ## 跑一期
 
-在 Claude Code 里打开这个仓库，把读者的笔记放进 `inbox/`（有电子书放进 `books/`），说"做一期杂志"。AI 会按 `SKILL.md` 走完全程。手动也行：
+用你的 agent 打开这个仓库（会自动读 `AGENTS.md` 的直接开始；不会的就让它先读 `SKILL.md`），把读者的笔记放进 `inbox/`（有电子书放进 `books/`），说"做一期杂志"。AI 会按 `SKILL.md` 走完全程。手动也行：
 
 ```bash
 python3 run.py ingest inbox/                       # 收件箱 → work/notes.jsonl、work/notes-digest.md
@@ -28,6 +28,7 @@ python3 run.py prepare books.yaml --issue issues/<日期>   # 拿书、拆章节
 python3 run.py translate issues/<日期>            # 列出非中文的篇，AI 翻译
 #   AI：写 issues/<日期>/cover.json（刊名两个字、配色、图案）
 python3 run.py render issues/<日期>               # → <刊名>-<日期>.pdf
+python3 run.py render issues/<日期> --style B --out issues/<日期>/<刊名>-<日期>-B.pdf   # 篇首页的另一种排法，两版都出
 python3 run.py check issues/<日期>                # 硬指标 → 检查报告.md
 ```
 
@@ -35,7 +36,7 @@ python3 run.py check issues/<日期>                # 硬指标 → 检查报告
 
 | 想改 | 文件 |
 |---|---|
-| 选篇、引子、摘要、脚注的写法 | `rules/editor/` 对应文件 |
+| 选篇、导语、「本期选读」说明、脚注的写法 | `rules/editor/` 对应文件 |
 | 刊名、封面的风格 | `rules/editor/title.md`、`cover.md` |
 | 字体、字号、页面、脚注版式、封面版式 | `rules/typesetting/` 先改说明，再改 `templates/issue.html`、`zine/render.py` |
 | 验收什么、不过怎么办 | `rules/quality/验收.md`，脚本 `zine/check.py` |
@@ -49,3 +50,13 @@ skill 不自带任何书源。书来自读者自己的电子书（放 `books/`�
 ## 不进仓库的东西
 
 `inbox/`、`work/`、`issues/`、`books/`、`reader.md`、`fonts/`、`*.pdf`、`.env`——笔记是隐私，书有版权，字体另下，密钥只在环境变量里。见 `.gitignore`。
+
+## 还没做的
+
+按读者印完第 3 期后的反馈排的。
+
+1. **内页和封面分成两个文件输出**：内页第一页是目录（右页）、总页数为偶数；另出封面展开图（封底 + 书脊 + 封面，带出血，书脊宽度可配）。原因见 `rules/typesetting/printing.md`。
+2. **目录背面的编者按页**：目录之后单独一页。由 AI 根据读者这段时间记的、收藏的、在想的东西写一段开篇，像编辑做的铺垫，不要一翻开就是第一篇。写法守 `rules/editor/context.md`。
+3. **页数预估**：`prepare` 之后就按字数估出每篇页数，选篇时直接看到总页数。
+4. `rules/quality/验收.md` 前几节里封面、扉页的条款还是第 2 期的写法，要按新版式整理一遍。
+5. 字体从 GitHub 下载，国内网络可能很慢，需要一个备用地址。

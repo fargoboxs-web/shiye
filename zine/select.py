@@ -1,9 +1,10 @@
 """第 3 步后半：AI 编辑从每本书里挑一篇，最多再配两三句导读。
 
 两种跑法，产物都是同一个 selection.json：
-  - agent 模式（默认）：在 Claude Code / skill 里运行，由当前会话里的 Claude 读 candidates.md、
+  - agent 模式（默认）：由正在按 SKILL.md 干活的 agent（哪一家都行）读 candidates.md、
     用 `run.py show` 读全文，然后直接写 selection.json。不需要 API key。
-  - api 模式：`run.py select --api`，脚本自己调 Claude API（需要 ANTHROPIC_API_KEY），适合放进定时任务。
+  - api 模式：`run.py select --api`，脚本自己调模型 API，适合放进定时任务。目前只接了 Claude API（需要 ANTHROPIC_API_KEY）；
+    换别家只需改本文件的 _ask()。
 """
 from __future__ import annotations
 
@@ -101,7 +102,7 @@ def validate(selection: dict, books: dict[str, dict]) -> list[str]:
                 problems.append(f"{tag}.notes[{n}]: 要有 term 和 note")
             elif note["term"] not in text:
                 problems.append(f"{tag}.notes[{n}]: 正文里找不到「{note['term']}」")
-    for f in ("number", "date"):
+    for f in ("date",):          # 期数可以不填（interfaces/schemas/selection.schema.json）
         if not selection.get("issue", {}).get(f):
             problems.append(f"issue: 缺少 {f}")
     return problems

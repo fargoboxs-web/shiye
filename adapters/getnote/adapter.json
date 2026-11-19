@@ -1,0 +1,13 @@
+{
+  "name": "getnote",
+  "title": "Get笔记",
+  "kind": "notes",
+  "does": "把 Get笔记 最近的笔记和收藏存进 inbox/",
+  "needs_env": [
+    "GETNOTE_API_KEY",
+    "GETNOTE_CLIENT_ID"
+  ],
+  "run": "python3 adapters/getnote/pull.py --days 30 --full",
+  "writes": "inbox/getnote-<日期>.jsonl",
+  "account_changes": "只读，不改账号里的东西"
+}

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "books": {
+      "type": "http",
+      "url": "https://<书库 MCP 的地址>/mcp",
+      "headers": {
+        "Authorization": "Bearer ${BOOKS_MCP_KEY}"
+      }
+    }
+  }
+}

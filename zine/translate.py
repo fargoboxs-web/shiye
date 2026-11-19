@@ -6,8 +6,8 @@ blocks 和所选段落一一对应（数量、顺序、type 都不变）。rende
 
 两种跑法：
   - agent 模式（默认）：`run.py translate <issue>` 把待译段落写成 zh/<book>.<章节号>.src.json，
-    由会话里的 Claude 翻译后写成同名的 .json（去掉 .src）。
-  - api 模式：`run.py translate <issue> --api`，脚本分段调 Claude API（需要 ANTHROPIC_API_KEY）。
+    由会话里的 agent 翻译后写成同名的 .json（去掉 .src）。
+  - api 模式：`run.py translate <issue> --api`，脚本分段调模型 API（可选；目前只接了 Claude API，需要 ANTHROPIC_API_KEY）。
 """
 from __future__ import annotations
 

@@ -4,13 +4,16 @@
 脚本只做确定性的事；判断题（画像、书单、选篇、写作、刊名）由运行 skill 的 AI 做，步骤见 SKILL.md。
 
 用法
+  python3 run.py adapters                               # 列出装了哪些适配器（笔记来源、书库），哪些能用
   python3 run.py ingest inbox/ [--work work/]           # 收件箱 → work/notes.jsonl + work/notes-digest.md
   python3 run.py prepare books.yaml [--issue DIR]       # 拿书、拆章节 → issues/<日期>/books/、candidates.md；缺书列出、不中断
   python3 run.py show <期目录> <book> <章节号>             # 看某一章的全文（带段落编号）
-  python3 run.py translate <期目录> [--api]               # 列出不是中文的选篇，AI 在会话里翻；--api 用 Claude API 翻
-  python3 run.py render <期目录> [--fonts A|B|C|D] [--out PDF]   # 校验 selection.json、读 cover.json，排成 PDF
-  python3 run.py check <期目录> [--booklet]               # 按 rules/quality/验收.md 2.1 查 PDF → <期目录>/检查报告.md
-  python3 run.py select <期目录> --api                    # 可选：用 Claude API 自动选篇（需要 ANTHROPIC_API_KEY）
+  python3 run.py translate <期目录> [--api]               # 列出不是中文的选篇，AI 在会话里翻；--api 让脚本自己调模型 API 翻（可选，目前只接了 Claude API）
+  python3 run.py render <期目录> [--fonts A|B|C|D] [--style A|B] [--out PDF]   # 校验 selection.json、读 cover.json，排成 PDF
+                                                        # 期目录里有 封面.html / 封底.html / 封面.css 时用它们做封面
+  python3 run.py covers <期目录> [--name 方向1]            # 把刚排好的封面、封底存成图 → <期目录>/小样/，给读者挑
+  python3 run.py check <期目录> [--booklet] [--pdf PDF]             # 按 rules/quality/验收.md 2.1 查 PDF → <期目录>/检查报告.md
+  python3 run.py select <期目录> --api                    # 可选：脚本自己调模型 API 选篇（目前只接了 Claude API，需要 ANTHROPIC_API_KEY）
 """
 from __future__ import annotations
 
@@ -68,6 +71,46 @@ def find_local_book(e: dict, dirs: list[Path]) -> Path | None:
                 if p.suffix.lower() in BOOK_EXT and any(n and (n in _norm(p.stem) or _norm(p.stem) in n) for n in names):
                     return p
     return None
+
+
+def cmd_adapters(args):
+    """列出 adapters/ 下的插件：能不能用，缺什么。只看环境变量在不在，不打印值。"""
+    import os
+    root = ROOT / "adapters"
+    sys.path.append(str(root)); import env; env.load()
+    metas = {}
+    for p in sorted(root.glob("*/adapter.json")):
+        try:
+            metas[p.parent.name] = json.loads(p.read_text(encoding="utf-8"))
+        except ValueError as e:
+            print(f"✗ {p.parent.name}：adapter.json 读不了（{e}）")
+    if not metas:
+        print("没有装适配器。笔记放进 inbox/，书放进 books/ 就能跑。")
+        return
+
+    def missing(m):
+        out = [f"环境变量 {v}" for v in m.get("needs_env", []) if not os.environ.get(v)]
+        out += [f"适配器 {a}" for a in m.get("needs_adapters", []) if a not in metas]
+        return out
+
+    for name, m in metas.items():
+        kind = {"notes": "笔记", "books": "书"}.get(m.get("kind"), m.get("kind", "?"))
+        lack = missing(m)
+        alt = next((a for a in m.get("alternatives", []) if not missing(a)), None) if lack else None
+        if m.get("needs_tools"):
+            state = "要看 agent 有没有这些工具：" + "、".join(m["needs_tools"])
+        elif not lack:
+            state = "能用"
+        elif alt:
+            state = "主路线没接（缺 " + "、".join(lack) + "），备用路线能用"
+        else:
+            state = "没接（缺 " + "、".join(lack) + "）"
+        print(f"【{kind}】{m.get('title', name)}（adapters/{name}/）：{state}")
+        print(f"    {m.get('does', '')}")
+        print(f"    跑法：{(alt or m).get('run', '见 README.md')}")
+        for k, label in (("costs", "花费"), ("account_changes", "会动账号")):
+            if m.get(k):
+                print(f"    {label}：{m[k]}")
 
 
 def cmd_ingest(args):
@@ -193,11 +236,34 @@ def cmd_render(args) -> Path:
         sys.exit("还有选篇不是中文，先跑 `run.py translate`：" + ", ".join(f"{p['book']} 第 {p['chapter']} 章" for p in untranslated))
     cover = load_cover(issue)
     name = cover.get("title") or CONFIG["name"]
+    # cover.json 里和整期配色有关的几项交给排版：每篇一个颜色、封面底色、标签颜色、扉页排法
+    for k in ("layers", "paper", "label_colors", "style", "divider_edge"):
+        if cover.get(k):
+            sel["issue"][k] = cover[k]
+    sel["issue"]["name"] = name
+    if getattr(args, "style", None):        # 扉页排法 A（色块）/ B（白底加索引条），见 rules/typesetting/divider.md
+        sel["issue"]["style"] = args.style
     out = Path(args.out) if args.out else issue / f"{name}-{issue.name}.pdf"
     cfg = {**CONFIG, "name": name, "cover": cover, "fonts": args.fonts or CONFIG.get("fonts", "B")}
     pages = render.render(sel, books, out, cfg, issue_dir=issue)
     print(f"✓ {out}（{pages} 页）")
     return out
+
+
+def cmd_covers(args):
+    """把排好的 PDF 的封面和封底存成图，给读者挑小样用：<期目录>/小样/<名字>-封面.png、-封底.png。"""
+    import pdfplumber
+    issue = Path(args.issue)
+    pdf = Path(args.pdf) if args.pdf else max(issue.glob("*.pdf"), key=lambda q: q.stat().st_mtime, default=None)
+    if not pdf:
+        sys.exit(f"{issue} 里没有 PDF（先跑 run.py render）")
+    out = issue / "小样"
+    out.mkdir(exist_ok=True)
+    with pdfplumber.open(pdf) as doc:
+        for page, side in ((doc.pages[0], "封面"), (doc.pages[-1], "封底")):
+            p = out / f"{args.name}-{side}.png"
+            page.to_image(resolution=150).save(p)
+            print(f"✓ {p}")
 
 
 def cmd_check(args) -> bool:
@@ -208,23 +274,27 @@ def cmd_check(args) -> bool:
         cmd.append("--booklet")
     if args.out:
         cmd += ["--out", args.out]
+    if getattr(args, "pdf", None):
+        cmd += ["--pdf", args.pdf]
     return subprocess.run(cmd).returncode == 0
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("adapters")
     p = sub.add_parser("ingest"); p.add_argument("inbox"); p.add_argument("--work", default=str(ROOT / "work"))
     p = sub.add_parser("prepare"); p.add_argument("booklist"); p.add_argument("--issue")
     p = sub.add_parser("show"); p.add_argument("issue"); p.add_argument("book"); p.add_argument("chapter")
     p = sub.add_parser("select"); p.add_argument("issue"); p.add_argument("--api", action="store_true")
     p = sub.add_parser("translate"); p.add_argument("issue"); p.add_argument("--api", action="store_true")
-    p = sub.add_parser("render"); p.add_argument("issue"); p.add_argument("--fonts", help="字体组合 A/B/C/D，见 rules/typesetting/fonts.md"); p.add_argument("--out")
-    p = sub.add_parser("check"); p.add_argument("issue"); p.add_argument("--booklet", action="store_true", help="骑马钉：页数不是 4 的倍数算不通过"); p.add_argument("--out")
+    p = sub.add_parser("render"); p.add_argument("issue"); p.add_argument("--fonts", help="字体组合 A/B/C/D，见 rules/typesetting/fonts.md"); p.add_argument("--out"); p.add_argument("--style", choices=["A", "B"], help="扉页排法：A 色块 / B 白底加索引条")
+    p = sub.add_parser("covers"); p.add_argument("issue"); p.add_argument("--name", default="方向1", help="这个小样叫什么"); p.add_argument("--pdf")
+    p = sub.add_parser("check"); p.add_argument("issue"); p.add_argument("--booklet", action="store_true", help="骑马钉：页数不是 4 的倍数算不通过"); p.add_argument("--out"); p.add_argument("--pdf", help="查哪一份 PDF（比如方案 B 那份）")
     args = ap.parse_args()
     if args.cmd == "check":
         sys.exit(0 if cmd_check(args) else 1)
-    {"ingest": cmd_ingest, "prepare": cmd_prepare, "show": cmd_show, "select": cmd_select,
+    {"adapters": cmd_adapters, "covers": cmd_covers, "ingest": cmd_ingest, "prepare": cmd_prepare, "show": cmd_show, "select": cmd_select,
      "translate": cmd_translate, "render": cmd_render}[args.cmd](args)
 
 

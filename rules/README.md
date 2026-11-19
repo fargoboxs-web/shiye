@@ -11,7 +11,8 @@
 | 6 选篇与写作 | `editor/selection.md`、`editor/context.md`、`editor/summary.md`、`editor/footnotes.md`；写任何字之前先读 `editor/language.md` |
 | 7 翻译 | `editor/translation.md` |
 | 8 刊名与封面 | `editor/title.md`、`editor/cover.md` |
-| 9 排版 | `typesetting/`（代码已实现，改版式时才读） |
+| 9 排版 | `typesetting/`（代码已实现，改版式时才读）；篇首页两种排法和目录见 `typesetting/divider.md` |
+| 11 交付、送印 | `typesetting/printing.md` |
 | 10 质检 | `quality/验收.md` |
 
 三层：**固定**（代码和模板保证，每期一样）、**约束**（规则给边界，AI 在边界里判断）、**自由**（AI 全权，规则只讲风格）。哪条属于哪层见 `quality/验收.md` 第一节。
