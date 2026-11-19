@@ -14,6 +14,9 @@ def load(path: Path | None = None) -> None:
         if not line or line.startswith("#") or "=" not in line:
             continue
         k, v = line.split("=", 1)
+        v = v.split(" #", 1)[0] if not v.lstrip().startswith(("'", '"')) else v   # 行尾注释
+        if v.lstrip().startswith("#"):
+            v = ""
         k, v = k.strip().removeprefix("export ").strip(), v.strip().strip("'\"")
         if k and v and not os.environ.get(k):
             os.environ[k] = v
