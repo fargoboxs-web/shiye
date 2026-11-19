@@ -7,11 +7,11 @@
   python3 run.py ingest inbox/ [--work work/]           # 收件箱 → work/notes.jsonl + work/notes-digest.md
   python3 run.py prepare books.yaml [--issue DIR]       # 拿书、拆章节 → issues/<日期>/books/、candidates.md；缺书列出、不中断
   python3 run.py show <期目录> <book> <章节号>             # 看某一章的全文（带段落编号）
-  python3 run.py translate <期目录> [--api]               # 列出不是中文的选篇，AI 在会话里翻；--api 用 Claude API 翻
+  python3 run.py translate <期目录> [--api]               # 列出不是中文的选篇，AI 在会话里翻；--api 让脚本自己调模型 API 翻（可选，目前只接了 Claude API）
   python3 run.py render <期目录> [--fonts A|B|C|D] [--style A|B] [--out PDF]   # 校验 selection.json、读 cover.json，排成 PDF
                                                         # 期目录里有 封面.html / 封底.html / 封面.css 时用它们做封面
   python3 run.py check <期目录> [--booklet] [--pdf PDF]             # 按 rules/quality/验收.md 2.1 查 PDF → <期目录>/检查报告.md
-  python3 run.py select <期目录> --api                    # 可选：用 Claude API 自动选篇（需要 ANTHROPIC_API_KEY）
+  python3 run.py select <期目录> --api                    # 可选：脚本自己调模型 API 选篇（目前只接了 Claude API，需要 ANTHROPIC_API_KEY）
 """
 from __future__ import annotations
 

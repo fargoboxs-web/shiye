@@ -1,6 +1,6 @@
 # 拾页 shiye
 
-把一个人的笔记和收藏做成一本可打印的 A5 杂志 PDF。这是一个 Claude Code skill：AI 做判断（读懂这个人、找出书、选篇、写引子摘要脚注、定刊名封面），脚本做确定性的事（拆书、排版、质检）。
+把一个人的笔记和收藏做成一本可打印的 A5 杂志 PDF。这是一个给 AI agent 用的 skill，不绑定哪一家：Claude Code、Codex、Cursor、Gemini CLI 或别的能读写文件、能跑命令的 agent 都可以。AI 做判断（读懂这个人、找出书、选篇、写引子摘要脚注、定刊名封面），脚本做确定性的事（拆书、排版、质检）。
 
 - 入口：`SKILL.md`（11 步，每步指向一个规则文件）
 - 规则：`rules/`（编辑判断 `editor/`、版式 `typesetting/`、验收 `quality/`），一个话题一个文件
@@ -18,7 +18,7 @@ bash scripts/fetch-fonts.sh        # 三种开源字体（Noto Serif SC、Noto S
 
 ## 跑一期
 
-在 Claude Code 里打开这个仓库，把读者的笔记放进 `inbox/`（有电子书放进 `books/`），说"做一期杂志"。AI 会按 `SKILL.md` 走完全程。手动也行：
+用你的 agent 打开这个仓库（会自动读 `AGENTS.md` 的直接开始；不会的就让它先读 `SKILL.md`），把读者的笔记放进 `inbox/`（有电子书放进 `books/`），说"做一期杂志"。AI 会按 `SKILL.md` 走完全程。手动也行：
 
 ```bash
 python3 run.py ingest inbox/                       # 收件箱 → work/notes.jsonl、work/notes-digest.md
