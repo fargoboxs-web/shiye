@@ -1,0 +1,27 @@
+{
+  "name": "xiaohongshu",
+  "title": "小红书公开收藏",
+  "kind": "notes",
+  "does": "给一个小红书主页链接，把这个人公开的收藏（正文、配图、视频逐字稿）存进 inbox/",
+  "needs_env": [
+    "TIKHUB_API_KEY",
+    "GETNOTE_API_KEY",
+    "GETNOTE_CLIENT_ID"
+  ],
+  "needs_adapters": [
+    "getnote"
+  ],
+  "run": "python3 adapters/xiaohongshu/pull.py <主页链接> --max 50",
+  "writes": "inbox/xiaohongshu-<日期>.jsonl 和 inbox/xiaohongshu/<id>/ 里的图",
+  "costs": "TikHub 每页约 0.01 美元（一页约 6 条），要充值余额",
+  "account_changes": "会在 Get笔记 里新建带「小红书收藏」标签的链接笔记；默认保留，--delete-after 才移入回收站",
+  "alternatives": [
+    {
+      "run": "python3 adapters/xiaohongshu/pull_apify.py <主页链接> --max 50",
+      "needs_env": [
+        "APIFY_TOKEN"
+      ],
+      "note": "不经过 Get笔记；视频用本机 faster-whisper 转写（要 ffmpeg）。Apify 免费账号每个 Actor 累计只给 25 条"
+    }
+  ]
+}

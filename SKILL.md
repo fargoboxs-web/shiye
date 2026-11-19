@@ -16,10 +16,11 @@ description: 拾页：把一个人的笔记和收藏做成一本可打印的 A5 
 
 ## 流程
 
+0. **看插件**（`adapters/README.md`）。`python3 run.py adapters` 列出装了哪些适配器、哪些能用。读者说了笔记在 Get笔记、小红书之类的地方，而对应的适配器能用，就跑它把东西拉进 `inbox/`；要花钱的、会动读者账号的，跑之前先告诉读者。没有能用的适配器不算问题，请读者把笔记放进 `inbox/`。
 1. **收笔记**（`interfaces/inbox.md`）。读者给的东西放进 `inbox/`，格式不限。`python3 run.py ingest inbox/` → `work/notes.jsonl` 和 `work/notes-digest.md`。先读 digest，需要原文再读 `notes.jsonl` 的 `text`。有的来源（Get笔记 的列表接口）给的 `text` 只是几百字的 AI 摘要：写画像要引原话、找书要核对书名时，按 id 取原文（`adapters/getnote/fetch.py <id>…` → `work/full/`），只取挑中的几条。有笔记来源 MCP 就按 `interfaces/notes-source.md` 调它。
 2. **读者画像**（`rules/editor/reader-profile.md`）。仓库根的 `reader.md`：没有就新建（模板 `interfaces/schemas/reader.template.md`），有就用新笔记更新，只改变了的字段。
 3. **书单**（`rules/editor/booklist.md`）→ `books.yaml`（格式 `interfaces/schemas/books.schema.json`）。读者点名想读的排最前。
-4. **取书**（`interfaces/book-source.md`）。`books/` 里有的直接用；没有就问书库 MCP，存进 `books/`，把 `file:` 和 `rights` 写回 `books.yaml`；都没有就留着，下一步会记进缺书。不编造全文，不用来源不明的文本。
+4. **取书**（`interfaces/book-source.md`）。`books/` 里有的直接用；没有就看手上有没有书库工具（自带的那个见 `adapters/books-mcp/README.md`），有就取来存进 `books/`，把 `file:` 和 `rights` 写回 `books.yaml`；都没有就留着，下一步会记进缺书。不编造全文，不用来源不明的文本。
 5. **拆书**：`python3 run.py prepare books.yaml --issue issues/<日期>` → `candidates.md`（每章开头几百字、篇幅「约 N 字」）、`books/*.json`、插图、封面；缺书写进 `缺书.md`，其余照常。没写 `file:` 的书按书名在 `books/` 里找（繁简通用，中译本优先于原版），用了哪个文件会打印出来，看一眼对不对；电子书有中译本就用中译本，少翻一篇。书名、译者以 `books.yaml` 为准，电子书元数据里的长副题不上杂志。
 6. **选篇与写作**。先读 `rules/editor/language.md`，再按 `selection.md` 选（5–6 篇、全期 80–100 页，选的时候就估页数）、`context.md` 写导语、`summary.md` 写「本期选读」说明、`footnotes.md` 写脚注。用 `python3 run.py show issues/<日期> <book> <章节号>` 读候选全文；篇幅看「约 N 字」，超过 12000 字的章要给 `excerpt`。脚注的 `term` 从 `show` 的输出里原样复制（prepare 已把引号、间隔号、破折号归一）。写 `issues/<日期>/selection.json`（格式 `interfaces/schemas/selection.schema.json`）。
 7. **翻译**（`rules/editor/translation.md`）：`python3 run.py translate issues/<日期>` 列出不是中文的篇；你在会话里翻，一段对一段写成它指定的 `.json`；再跑一次确认全是中文。

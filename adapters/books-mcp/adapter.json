@@ -1,0 +1,13 @@
+{
+  "name": "books-mcp",
+  "title": "书库 MCP",
+  "kind": "books",
+  "does": "按书名找到整本 EPUB / PDF，给一个一小时内有效的下载链接",
+  "needs_tools": [
+    "search_books",
+    "get_book"
+  ],
+  "needs_env": [],
+  "run": "agent 直接调 MCP 工具，见 adapters/books-mcp/README.md",
+  "writes": "books/<key>.epub，并把 file 和 rights 写回 books.yaml"
+}

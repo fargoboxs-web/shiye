@@ -4,6 +4,7 @@
 脚本只做确定性的事；判断题（画像、书单、选篇、写作、刊名）由运行 skill 的 AI 做，步骤见 SKILL.md。
 
 用法
+  python3 run.py adapters                               # 列出装了哪些适配器（笔记来源、书库），哪些能用
   python3 run.py ingest inbox/ [--work work/]           # 收件箱 → work/notes.jsonl + work/notes-digest.md
   python3 run.py prepare books.yaml [--issue DIR]       # 拿书、拆章节 → issues/<日期>/books/、candidates.md；缺书列出、不中断
   python3 run.py show <期目录> <book> <章节号>             # 看某一章的全文（带段落编号）
@@ -69,6 +70,45 @@ def find_local_book(e: dict, dirs: list[Path]) -> Path | None:
                 if p.suffix.lower() in BOOK_EXT and any(n and (n in _norm(p.stem) or _norm(p.stem) in n) for n in names):
                     return p
     return None
+
+
+def cmd_adapters(args):
+    """列出 adapters/ 下的插件：能不能用，缺什么。只看环境变量在不在，不打印值。"""
+    import os
+    root = ROOT / "adapters"
+    metas = {}
+    for p in sorted(root.glob("*/adapter.json")):
+        try:
+            metas[p.parent.name] = json.loads(p.read_text(encoding="utf-8"))
+        except ValueError as e:
+            print(f"✗ {p.parent.name}：adapter.json 读不了（{e}）")
+    if not metas:
+        print("没有装适配器。笔记放进 inbox/，书放进 books/ 就能跑。")
+        return
+
+    def missing(m):
+        out = [f"环境变量 {v}" for v in m.get("needs_env", []) if not os.environ.get(v)]
+        out += [f"适配器 {a}" for a in m.get("needs_adapters", []) if a not in metas]
+        return out
+
+    for name, m in metas.items():
+        kind = {"notes": "笔记", "books": "书"}.get(m.get("kind"), m.get("kind", "?"))
+        lack = missing(m)
+        alt = next((a for a in m.get("alternatives", []) if not missing(a)), None) if lack else None
+        if m.get("needs_tools"):
+            state = "要看 agent 有没有这些工具：" + "、".join(m["needs_tools"])
+        elif not lack:
+            state = "能用"
+        elif alt:
+            state = "主路线没接（缺 " + "、".join(lack) + "），备用路线能用"
+        else:
+            state = "没接（缺 " + "、".join(lack) + "）"
+        print(f"【{kind}】{m.get('title', name)}（adapters/{name}/）：{state}")
+        print(f"    {m.get('does', '')}")
+        print(f"    跑法：{(alt or m).get('run', '见 README.md')}")
+        for k, label in (("costs", "花费"), ("account_changes", "会动账号")):
+            if m.get(k):
+                print(f"    {label}：{m[k]}")
 
 
 def cmd_ingest(args):
@@ -224,6 +264,7 @@ def cmd_check(args) -> bool:
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("adapters")
     p = sub.add_parser("ingest"); p.add_argument("inbox"); p.add_argument("--work", default=str(ROOT / "work"))
     p = sub.add_parser("prepare"); p.add_argument("booklist"); p.add_argument("--issue")
     p = sub.add_parser("show"); p.add_argument("issue"); p.add_argument("book"); p.add_argument("chapter")
@@ -234,7 +275,7 @@ def main():
     args = ap.parse_args()
     if args.cmd == "check":
         sys.exit(0 if cmd_check(args) else 1)
-    {"ingest": cmd_ingest, "prepare": cmd_prepare, "show": cmd_show, "select": cmd_select,
+    {"adapters": cmd_adapters, "ingest": cmd_ingest, "prepare": cmd_prepare, "show": cmd_show, "select": cmd_select,
      "translate": cmd_translate, "render": cmd_render}[args.cmd](args)
 
 

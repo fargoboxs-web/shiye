@@ -15,6 +15,8 @@
 
 ## 已知来源
 
+装了哪些、哪些能用：`python3 run.py adapters`。怎么加新的：`../adapters/README.md`。
+
 - **Get笔记**：官方 Open API 够用，三个端点（列表、原文、语义搜索），细节和限流经验见 `../adapters/getnote/README.md`。密钥只从环境变量读，任何输出不打印密钥值。
-- **小红书收藏夹**（2026-10-15 调研）：能列出自己收藏的 MCP 只有 [xpzouying/xiaohongshu-mcp](https://github.com/xpzouying/xiaohongshu-mcp) 一系（`get_my_profile` 的 fav 页），但只取首屏不翻页，当前版本有超时问题。要全量落盘得拼两个非 MCP 工具：[lucasygu/redbook](https://github.com/lucasygu/redbook) 的 `favorites --all --json` 翻页取全部收藏链接，再用 [JoeanAmier/XHS-Downloader](https://github.com/JoeanAmier/XHS-Downloader) 下正文和图片到 `inbox/`。步骤见 `../adapters/xiaohongshu/README.md`。
+- **小红书收藏夹**：`../adapters/xiaohongshu/`。给主页链接，取这个人公开的收藏，正文、配图和视频逐字稿都有。只能取设成公开的收藏。
 - **Notion、Obsidian、飞书**等：导出成 Markdown 放进 `inbox/` 即可，不需要适配器。

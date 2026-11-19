@@ -20,6 +20,10 @@
 
 EPUB 优先：拆章、插图、封面都最完整。PDF 靠书签拆章，扫描版不能用。
 
+## 已有的实现
+
+- `adapters/books-mcp/`：随 skill 带的书库 MCP，两个工具 `search_books(query)` 和 `get_book(book_id)`，和上表的对应关系写在它的 README 里。
+
 ## 怎么包现有的 zlibrary-mcp
 
 它已有 `search_books` 和 `download_book_to_file`，包一层就能对上：`search_books` 的返回映射成上表的字段（`rights` 由包装层按来源填），`fetch_book` 调 `download_book_to_file` 并返回落盘路径。

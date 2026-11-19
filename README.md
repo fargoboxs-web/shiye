@@ -6,7 +6,7 @@
 - 规则：`rules/`（编辑判断 `editor/`、版式 `typesetting/`、验收 `quality/`），一个话题一个文件
 - 接口：`interfaces/`（收件箱 `inbox/`、笔记来源 MCP、书库 MCP，以及中间产物的 JSON Schema）
 - 代码：`run.py` + `zine/`（拆书、排版、质检、收件箱）、`templates/issue.html`
-- 适配器（可选）：`adapters/`（Get笔记 批量存入 inbox 的脚本；小红书收藏夹的导出步骤）
+- 适配器（可选，可拔插）：`adapters/`（Get笔记、小红书公开收藏、书库 MCP；`python3 run.py adapters` 看哪些能用，怎么加新的见 `adapters/README.md`）
 - 示例：`examples/2026-10-13/`（一期的 selection.json、cover.json、检查报告；读者画像是匿名样例）
 
 ## 安装
