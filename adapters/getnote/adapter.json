@@ -2,12 +2,25 @@
   "name": "getnote",
   "title": "Get笔记",
   "kind": "notes",
-  "does": "把 Get笔记 最近的笔记和收藏存进 inbox/",
-  "needs_env": [
-    "GETNOTE_API_KEY",
-    "GETNOTE_CLIENT_ID"
+  "does": "把 Get笔记 最近 30 天的笔记和收藏存进 inbox/",
+  "ask": [
+    {
+      "env": "GETNOTE_API_KEY",
+      "prompt": "Get笔记 的 API Key",
+      "how": "在 https://www.biji.com/openapi 建一个应用后生成"
+    },
+    {
+      "env": "GETNOTE_CLIENT_ID",
+      "prompt": "Get笔记 的 Client ID",
+      "how": "和 API Key 在同一页"
+    }
   ],
-  "run": "python3 adapters/getnote/pull.py --days 30 --full",
-  "writes": "inbox/getnote-<日期>.jsonl",
+  "test": "test.py",
+  "pull": [
+    "pull.py",
+    "--days",
+    "30",
+    "--full"
+  ],
   "account_changes": "只读，不改账号里的东西"
 }

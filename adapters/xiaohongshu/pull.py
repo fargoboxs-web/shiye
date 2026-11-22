@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""可选的来源适配器：小红书主页链接 → 公开收藏 → Get笔记 转写 → inbox/。
+"""连接器：小红书主页链接 → 公开收藏 → Get笔记 转写 → inbox/。
 
   python3 adapters/xiaohongshu/pull.py <主页链接或用户ID> [--max 0] [--inbox inbox/]
   python3 adapters/xiaohongshu/pull.py --favs favs.jsonl   # 复用 tikhub.py 存下的列表，跳过第 1 步
@@ -32,7 +32,7 @@ sys.path.append(str(HERE.parent / "getnote"))   # 放后面：那边也有个 pu
 try:
     import getnote  # noqa: E402
 except ImportError:
-    sys.exit("这个适配器要用 adapters/getnote/ 做转写，那个目录不在。换 pull_apify.py，或者把 getnote 适配器放回来。")
+    sys.exit("这个连接器要用 adapters/getnote/ 做转写，那个目录不在。")
 from tikhub import favorites  # noqa: E402
 
 TAG = "小红书收藏"
@@ -80,7 +80,7 @@ def main():
     ap.add_argument("--skip", type=int, default=0, help="跳过列表前多少条（分批跑）")
     ap.add_argument("--batch", type=int, default=20, help="同时在 Get笔记 里处理的最多条数")
     ap.add_argument("--max", type=int, default=0, help="最多取多少条收藏（0 = 全部）")
-    ap.add_argument("--inbox", default=str(HERE.parents[1] / "inbox"))
+    ap.add_argument("--inbox", default="inbox")
     ap.add_argument("--timeout", type=int, default=1200, help="单条等 Get笔记 处理的最长秒数")
     ap.add_argument("--delete-after", action="store_true", help="抓完把这次在 Get笔记 里建的笔记移入回收站（默认不删）")
     args = ap.parse_args()

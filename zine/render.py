@@ -20,14 +20,6 @@ ROOT = Path(__file__).resolve().parent.parent
 _LATIN_PAREN = re.compile(r"（([^）]*[A-Za-z][^）]*)）")
 
 
-# 字体组合：正文 / 标题 / 引文（题记、诗句、引子）。见 排版.md
-FONT_COMBOS = {
-    "A": ("SongTi", "HeiTi", "SongTi"),
-    "B": ("SongTi", "HeiTi", "KaiTi"),
-    "C": ("SongTi", "SongTi", "KaiTi"),
-    "D": ("KaiTi", "HeiTi", "KaiTi"),
-}
-
 _CJK_LAT = re.compile(r"(?<=[\u3400-\u4dbf\u4e00-\u9fff])(?=[A-Za-z0-9])|(?<=[A-Za-z0-9])(?=[\u3400-\u4dbf\u4e00-\u9fff])")
 
 
@@ -97,69 +89,8 @@ def _shape(blocks: list[dict], chapter_title: str) -> list[dict]:
     return grouped
 
 
-# 封面配色：每期换一组。cover.json 的 palette 可以是名字、序号或 {field, shapes}；没有就按 seed 轮着用。
-# field 是底色，shapes 是"纸"的三种颜色。见 rules/typesetting/covers.md
-# 纸色固定三样（rules/quality/验收.md C6）：墨黑 #1E1D1A（与内页同一个值）、米白 #FBF8F1、拾页红 #D94F2B；不用蓝
-INK, CREAM, RED = "#1E1D1A", "#FBF8F1", "#D94F2B"
-PALETTES = [
-    {"name": "淡紫", "field": "#D9D4E7", "shapes": [INK, CREAM, RED], "ink": INK},
-    {"name": "芥末黄", "field": "#E6B93F", "shapes": [INK, CREAM, RED], "ink": INK},
-    {"name": "灰绿", "field": "#DCE5DF", "shapes": ["#1F3D2B", CREAM, RED], "ink": INK},
-    {"name": "淡粉", "field": "#F0D9D0", "shapes": [INK, CREAM, RED], "ink": INK},
-]
-MAST_FONTS = {"kai": "KaiTi", "song": "SongTi", "hei": "HeiTi"}
-
-
-def palette(seed: int, config: dict) -> dict:
-    p = (config.get("cover") or {}).get("palette", config.get("palette"))
-    if isinstance(p, dict):
-        shapes = list(p.get("shapes") or [])
-        if len(shapes) < 3:
-            raise ValueError("自定义调色板要给 field 和三个 shapes 颜色")
-        return {"name": p.get("name", "自定义"), "field": p["field"], "shapes": shapes[:3], "ink": p.get("ink", INK)}
-    if isinstance(p, str):
-        for pal in PALETTES:
-            if pal["name"] == p:
-                return pal
-        if not p.isdigit():
-            raise ValueError(f"不认识的调色板 {p!r}；可用：{'、'.join(x['name'] for x in PALETTES)}，或 {{field, shapes}}")
-        p = int(p)
-    if isinstance(p, int):
-        return PALETTES[p % len(PALETTES)]
-    return PALETTES[(int(seed) - 1) % len(PALETTES)]
-
-
-def cover_art(seed: int, pal: dict, mirror: bool = False, motif: str = "fan", svg: str | None = None) -> str:
-    """封面图案。motif：fan 十张纸从左下角扇形展开；stack 八张纸叠在左下；scatter 十张纸散落下半页；svg 自写片段。
-    seed 做随机种子，同一期每次生成都一样。mirror=True 是封底：左右翻转，摊开来前后封面在书脊处拼起来。"""
-    import random
-    rnd = random.Random(int(seed))
-    sh = pal["shapes"]
-    parts = []
-    if motif == "svg" and svg:
-        body = svg
-    elif motif == "stack":
-        for i in range(8):
-            x, y, a = 14 + i * 2.2 + rnd.uniform(-1, 1), 150 - i * 3.6 + rnd.uniform(-1, 1), rnd.uniform(-5, 5)
-            parts.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="56" height="78" fill="{sh[i % 3]}" '
-                         f'transform="rotate({a:.1f} {x + 28:.1f} {y + 39:.1f})"/>')
-        body = "".join(parts)
-    elif motif == "scatter":
-        for i in range(10):
-            x, y, a = rnd.uniform(4, 96), rnd.uniform(96, 168), rnd.uniform(-40, 40)
-            parts.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="30" height="42" fill="{sh[i % 3]}" '
-                         f'transform="rotate({a:.1f} {x + 15:.1f} {y + 21:.1f})"/>')
-        body = "".join(parts)
-    else:
-        cx, cy, n, w, h = 26, 232, 10, 44, 150   # 扇子的轴心在页面左下角外面一点
-        for i in range(n):
-            a = -24 + i * (96 / (n - 1)) + rnd.uniform(-1.2, 1.2)
-            parts.append(f'<rect x="{cx}" y="{cy - h}" width="{w}" height="{h}" fill="{sh[i % 3]}" '
-                         f'fill-opacity="0.9" transform="rotate({a:.1f} {cx} {cy})"/>')
-        body = "".join(parts)
-    if mirror:
-        body = f'<g transform="translate(148 0) scale(-1 1)">{body}</g>'
-    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 148 210" width="148mm" height="210mm">{body}</svg>'
+INK = "#1E1D1A"
+PAPER = "#F3EEE2"      # cover.json 没写 paper 时的封面底色
 
 
 def cn_date(date: str) -> tuple[str, str]:
@@ -589,15 +520,9 @@ def render(selection: dict, books: dict[str, dict], out_pdf: Path, config: dict,
               for p in selection["pieces"]]
     cover = dict(config.get("cover") or {})                      # cover.json：刊名、配色、图案（run.py 读进来的）
     date = str(selection["issue"]["date"])
-    seed = int(cover.get("seed") or selection["issue"].get("number") or (int(re.sub(r"\D", "", date) or 1) % 9973))
-    selection["issue"].setdefault("number", seed)
-    pal = palette(seed, config)
-    motif, svg = cover.get("motif") or "fan", cover.get("svg")
+    paper = cover.get("paper") or selection["issue"].get("paper") or PAPER
     ctx = {"issue": selection["issue"], "pieces": pieces, "cfg": config, "fonts": (ROOT / "fonts").as_uri(),
-           "F": FONT_COMBOS.get(config.get("fonts") or "B", FONT_COMBOS["B"]),
-           "pal": pal, "cover": cover, "mast_font": MAST_FONTS.get(cover.get("mast") or "kai", "KaiTi"),
-           "cover_svg": cover_art(seed, pal, motif=motif, svg=svg),
-           "back_svg": cover_art(seed, pal, mirror=True, motif=motif, svg=svg),
+           "paper": paper, "cover": cover,
            "cn_date": cn_date(str(selection["issue"]["date"]))}
 
     # 每期的封面单独设计、和内容呼应：期目录里放 封面.html / 封底.html（<section> 里面的内容，可用模板变量）
@@ -612,22 +537,21 @@ def render(selection: dict, books: dict[str, dict], out_pdf: Path, config: dict,
 
     # 扉页和目录的颜色：issue.layers（run.py 从 cover.json 抄进来）给每篇一个颜色（一般就是封面上那几层的颜色），没给就用封面底色
     layers = list(selection["issue"].get("layers") or [])
-    paper0 = selection["issue"].get("paper") or pal["field"]
+    paper0 = paper
     for k, p in enumerate(pieces):
-        c = layers[k % len(layers)] if layers else pal["field"]
+        c = layers[k % len(layers)] if layers else paper
         prev = (layers[(k - 1) % len(layers)] if k else paper0) if layers else paper0
-        labs = selection["issue"].get("label_colors") or []      # 「本期选读」和方案 B 序号的颜色：设计稿里是逐层挑的，有就用
+        labs = selection["issue"].get("label_colors") or []      # 「本期选读」的颜色：有就用，没有把这一篇的颜色压暗
         p.update(color=c, dark=_lum(c) < 0.47, label_color=labs[k] if k < len(labs) else _label_color(c), art=_divider_art(k, c, prev, selection["issue"].get("divider_edge") or "straight"))
         if p.get("cover_path"):
-            p["cover_url_plain"] = p["cover_url"]                      # 白底上的书影（方案 B 用）
-            p["cover_url"] = shadowed(p["cover_path"], c).as_uri()     # 色块上的书影（方案 A 用）
+            p["cover_url"] = shadowed(p["cover_path"], c).as_uri()     # 色块上的书影，阴影画在图里
         m = p["title_main"]
         if len(m) > 9 and "，" in m[2:-2]:      # 太长的篇名在逗号后面折行
             i = m.index("，", 2)
             p["title_main_html"] = m[: i + 1] + "<br>" + m[i + 1:]
         else:
             p["title_main_html"] = m
-        # 方案 A 的篇名默认 25.5pt；篇名排到离书影不足 9mm 时降到 22.5pt（书影右沿 132.8mm、高 50.2mm，宽随封面比例）
+        # 篇名默认 25.5pt；篇名排到离书影不足 9mm 时降到 22.5pt（书影右沿 132.8mm、高 50.2mm，宽随封面比例）
         p["pt_small"] = False
         if p.get("cover_path"):
             from PIL import Image as _I
@@ -665,13 +589,7 @@ def render(selection: dict, books: dict[str, dict], out_pdf: Path, config: dict,
             lengths = [1] * n_p
         for k, p in enumerate(pieces):
             p["odd"] = (starts[k] % 2 == 1) if starts else True
-        # 方案 B 扉页切口上的索引条：整页高，一篇一段，段高按页数
-        tot, acc, strip = sum(lengths) or 1, 0.0, []
-        for L in lengths:
-            strip.append({"top": round(acc, 2), "h": round(210.0 * L / tot, 2)})
-            acc += 210.0 * L / tot
-        html = tpl.render(**ctx, note_pages=pad, toc=_toc_layout(lengths), strip=strip, nudges=NUDGES,
-                          style=str(selection["issue"].get("style") or "A").upper())
+        html = tpl.render(**ctx, note_pages=pad, toc=_toc_layout(lengths), nudges=NUDGES)
         doc = HTML(string=html, base_url=str(ROOT)).render()
         n = len(doc.pages)
         found = {}

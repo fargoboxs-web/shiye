@@ -1,19 +1,10 @@
-# 来源适配器：Get笔记（可选）
+# 连接器：Get笔记
 
-主线不依赖它。它只是把 Get笔记 最近的收藏批量存进 `inbox/`，省得 AI 一条条搬：
+把 Get笔记 最近 30 天的笔记和收藏存进 `inbox/`。只读，不改账号里的东西。
 
-```bash
-export GETNOTE_API_KEY=…  GETNOTE_CLIENT_ID=…     # 只放环境变量，不写进文件
-python3 adapters/getnote/pull.py --days 30 --full   # → inbox/getnote-<日期>.jsonl
-python3 run.py ingest inbox/                         # → work/notes.jsonl
-```
-
-`pull.py` 不带 `--full` 时，每条的 `text` 只是 Get笔记 的 AI 摘要（六百字左右），够扫、不够引用。要原话时按 id 取：
-
-```bash
-python3 adapters/getnote/fetch.py 1920347657994434784 …                         # → work/full/<id>.json
-python3 adapters/getnote/fetch.py --from-digest work/notes-digest.md --grep 书单   # 按 digest 里的行挑
-```
+- 要什么：`GETNOTE_API_KEY`、`GETNOTE_CLIENT_ID`，在 https://www.biji.com/openapi 建一个应用后生成。写在工作目录的 `.env` 里。
+- 怎么跑：`python3 <skill>/run.py pull` 会自动调它。单独跑是 `python3 <skill>/adapters/getnote/pull.py --days 30 --full --inbox inbox`。
+- 单独取某几条的原文：`python3 <skill>/adapters/getnote/fetch.py <id>…`，存到 `work/full/`。
 
 `getnote.py` 直接调官方 REST（三个函数：`list_items(since)`、`get_item(id)`、`search_items(q)`），不经过官方 MCP。下面是 2026-10-12 的接口调研。
 

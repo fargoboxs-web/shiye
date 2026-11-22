@@ -1,4 +1,4 @@
-"""读仓库根的 .env，把里面的 KEY=VALUE 放进环境变量（已有的环境变量优先，不覆盖）。不打印任何值。"""
+"""读工作目录（SHIYE_HOME 或当前目录）的 .env，把里面的 KEY=VALUE 放进环境变量（已有的环境变量优先，不覆盖）。不打印任何值。"""
 from __future__ import annotations
 
 import os
@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 def load(path: Path | None = None) -> None:
-    p = path or Path(__file__).resolve().parents[1] / ".env"
+    p = path or Path(os.environ.get("SHIYE_HOME") or Path.cwd()) / ".env"
     if not p.exists():
         return
     for line in p.read_text(encoding="utf-8").splitlines():

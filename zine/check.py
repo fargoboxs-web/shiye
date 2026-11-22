@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """拾页成品的硬指标检查：对渲染好的一期（PDF + 同名 HTML + selection.json）量数字、对规则。
 
-用法：python3 check.py <期目录> [--out 报告.md] [--tail-lines 5] [--booklet]
+用法：python3 check.py <期目录> [--out 报告.md] [--tail-lines 5]（平时用 run.py check）
   期目录里自动找 拾页-*.pdf、同名 .html、selection.json。
   报告写成 Markdown（默认 <期目录>/检查报告.md；目录只读时用 --out 指到别处），stdout 打印摘要。
   --tail-lines N   篇末页正文少于 N 行算过短（默认 5）
@@ -75,9 +75,9 @@ SIZE_TABLE = [
     ("小节标题", "HeiTi", 10.5, ""),
     ("篇名", "SongTi", 17.0, "2026-11 起宋体粗体"),
     ("篇名副题", "SongTi", (12.0, 12.0), "带冒号的篇名，后半句另起一行"),
-    ("扉页篇名", "SongTi", (25.5, 22.5), "方案 A 25.5pt、方案 B 22.5pt"),
-    ("扉页序号", "SongTi", (48.0, 63.0), "方案 A 48pt、方案 B 63pt"),
-    ("扉页引子", "KaiTi", (12.0, 13.5), "方案 A 12pt、方案 B 13.5pt"),
+    ("扉页篇名", "SongTi", (25.5, 22.5), "25.5pt；篇名长、挨着书影时 22.5pt"),
+    ("扉页序号", "SongTi", (48.0,), "48pt"),
+    ("扉页引子", "KaiTi", (12.0,), "12pt"),
     ("扉页摘要", "SongTi", 9.4, ""),
     ("扉页章节名", "SongTi", 10.5, ""),
     ("扉页小字", "SongTi", 9.0, "书名作者、「本期选读」、页码"),
@@ -1004,7 +1004,7 @@ def check_cover(iss: Issue, rep: Report):
     if back_field and back_field != cmp_field: fail.append(f"封底底色 {back_field} ≠ 封面 {cmp_field}")
     # 三纸色对底色的对比：黑 ≥ 7:1、米白 ΔL* ≥ 18、第三色对比 ≥ 2.5:1；纸不该透明
     svg = re.search(r'<section class="cover">(.*?)</section>', iss.html, re.S)
-    custom = bool(svg) and ((iss.dir / "封面.html").exists() or 'transform="rotate(' not in svg.group(1))     # 每期单独设计的封面（期目录里的 封面.html）
+    custom = (iss.dir / "封面.html").exists()     # 封面每期由 agent 设计：期目录里的 封面.html
     if svg and custom:
         # 单独设计的封面，封底可以和封面不同底色（比如「底下」封底是整页深色），这一条只记不判
         for f in [f for f in fail if f.startswith("封底底色")]:
@@ -1012,30 +1012,14 @@ def check_cover(iss: Issue, rep: Report):
         fills = []
         for f in re.findall(r'fill="(#[0-9A-Fa-f]{6})"', svg.group(1)):
             if f.upper() not in fills: fills.append(f.upper())
-        ev.append(f"本期单独设计的封面，用色 {fills}（扇形图案那套三纸色规则不适用）")
+        ev.append(f"本期单独设计的封面，用色 {fills}")
         layers = [str(c).upper() for c in (iss.sel.get("issue", {}).get("layers") or [])]
         if layers:
             lost = [c for c in layers if c not in fills]
             ev.append(f"cover.json 的 layers {layers}")
             if lost: warn.append(f"扉页和目录用的颜色 {lost} 不在封面上：内页的颜色应取自封面")
-    elif svg:
-        fills = []
-        for f in re.findall(r'fill="(#[0-9A-Fa-f]{6})"', svg.group(1)):
-            if f.upper() not in fills: fills.append(f.upper())
-        ops = {o for o in re.findall(r'fill-opacity="([\d.]+)"', svg.group(1))}
-        for f in fills:
-            Lf, yf, Cf = hex_to_lab(f)
-            ratio = (max(y, yf) + 0.05) / (min(y, yf) + 0.05)
-            kind = "深色纸" if Lf < 40 and Cf < 20 else ("浅色纸" if Lf > 85 and Cf < 20 else "彩色纸")
-            ev.append(f"纸色 {f}（{kind}）：L* {Lf}、彩度 {Cf}，与底色 ΔL* {abs(L - Lf):.0f}，对比 {ratio:.1f}:1")
-            if kind == "深色纸" and ratio < 7: warn.append(f"深色纸 {f} 对底色对比 {ratio:.1f}:1 < 7")
-            if kind == "浅色纸" and abs(L - Lf) < 18: warn.append(f"浅色纸 {f} 与底色 ΔL* 只有 {abs(L - Lf):.0f} < 18，印出来会和底色混在一起")
-            if kind == "彩色纸" and ratio < 2.5: warn.append(f"彩色纸 {f} 对底色对比 {ratio:.1f}:1 < 2.5")
-        if not any(abs(hex_to_lab(f)[0] - hex_to_lab("#B5432B")[0]) < 12 and hex_to_lab(f)[2] > 40 and int(f[1:3], 16) > int(f[5:7], 16) for f in fills):
-            warn.append("封面三纸色里没有拾页红（内页 accent #B5432B，封面可用 #D94F2B）：封面和内页没有共同的一色")
-        if any(float(o) < 1 for o in ops):
-            warn.append(f"封面图案 fill-opacity={sorted(ops)}，纸是半透明的：叠色处多出第 5、6 种颜色，送厂要拍平透明")
-        ev.append(f"封面 {len(re.findall('<rect', svg.group(1)))} 张纸、{len(fills)} 种纸色 {fills}")
+    else:
+        fail.append("封面还没设计：期目录里没有 封面.html、封底.html（做法见 rules/editor/cover.md）")
     # 封面上只许有刊名和日期
     cover_txt = "".join(l.text for l in iss.lines[1]).strip()
     if len(cover_txt) > 10 or iss.pdf.pages[0].images:
@@ -1045,7 +1029,7 @@ def check_cover(iss: Issue, rep: Report):
 
 
 def check_cover_bitmap(iss: Issue, rep: Report):
-    """⑮b 封面封底摊平成一把扇子：书脊两侧 2mm 像素列颜色序列一致率 ≥ 95%；封面墨量（家用打印）"""
+    """⑮b 封面墨量（家用打印）；顺带记下书脊两侧 2mm 的颜色是否接得上"""
     import tempfile
     from PIL import Image
     fail, warn, ev = [], [], []
@@ -1056,7 +1040,7 @@ def check_cover_bitmap(iss: Issue, rep: Report):
             a = Image.open(next(Path(td).glob("c-*.png"))).convert("RGB")
             b = Image.open(next(Path(td).glob("b-*.png"))).convert("RGB")
         except StopIteration:
-            rep.add("⑮b", "封面封底拼合与墨量", "警告", "pdftoppm 没渲染出封面", []); return
+            rep.add("⑮b", "封面墨量", "警告", "pdftoppm 没渲染出封面", []); return
     W, H = a.size
     px_mm = W / A5[0]
     n = max(1, int(2 * px_mm))
@@ -1066,11 +1050,8 @@ def check_cover_bitmap(iss: Issue, rep: Report):
     pb = [b.getpixel((W - 1 - x, y)) for y in range(H) for x in range(1, n + 1)]
     same = sum(1 for u, v in zip(pa, pb) if max(abs(i - j) for i, j in zip(u, v)) < 24) / len(pa)
     ev.append(f"书脊两侧各 2mm 的像素列：封面左缘与封底右缘颜色一致率 {same:.0%}（40dpi 渲染）")
-    _cv = re.search(r'<section class="cover">(.*?)</section>', iss.html, re.S)
-    if same < 0.95 and _cv and ((iss.dir / "封面.html").exists() or 'transform="rotate(' not in _cv.group(1)):
-        ev.append("本期封面是单独设计的，封面封底不要求在书脊处接上，这一条不判")
-    elif same < 0.95:
-        fail.append(f"书脊两侧颜色序列一致率 {same:.0%} < 95%：摊平后前后封面的图案在书脊处接不上")
+    if same < 0.95:
+        ev.append("封面封底不要求在书脊处接上，这一条只记不判")
     # 墨量：简单 RGB→CMYK 取 (C+M+Y+K)/4 的均值；深色面积 = 亮度 < 25% 的像素占比
     def cmyk(r, g, b):
         k = 1 - max(r, g, b) / 255
@@ -1084,8 +1065,8 @@ def check_cover_bitmap(iss: Issue, rep: Report):
     ev.append(f"封面平均墨量约 {ink:.0%}（(C+M+Y+K)/4 均值），亮度 < 25% 的深色面积 {dark:.0%}")
     if ink > 0.30: warn.append(f"封面平均墨量 {ink:.0%} > 30%，80g 纸喷墨会卷、透到目录页；封面用 ≥ 120g 纸")
     if dark > 0.25: warn.append(f"封面深色面积 {dark:.0%} > 25%")
-    rep.add("⑮b", "封面封底拼合与墨量", "不通过" if fail else ("警告" if warn else "通过"),
-            "；".join(fail + warn) if fail or warn else f"书脊处颜色一致率 {same:.0%}，摊平后前后封面接得上；墨量 {ink:.0%}", fail + warn + ev)
+    rep.add("⑮b", "封面墨量", "不通过" if fail else ("警告" if warn else "通过"),
+            "；".join(fail + warn) if fail or warn else f"墨量 {ink:.0%}", fail + warn + ev)
 
 
 # ---- 以下是硬指标里能顺手量的几条（审稿时发现的硬伤）

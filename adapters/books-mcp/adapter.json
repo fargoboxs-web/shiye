@@ -1,15 +1,19 @@
 {
   "name": "books-mcp",
-  "title": "书库 MCP",
+  "title": "书库",
   "kind": "books",
-  "does": "按书名找到整本 EPUB / PDF，给一个一小时内有效的下载链接",
-  "needs_tools": [
-    "search_books",
-    "get_book"
+  "does": "按书名取整本电子书",
+  "ask": [
+    {
+      "env": "BOOKS_MCP_URL",
+      "prompt": "书库的服务地址",
+      "how": "向给你这个 skill 的人要"
+    },
+    {
+      "env": "BOOKS_MCP_KEY",
+      "prompt": "书库的 key",
+      "how": "向给你这个 skill 的人要，每人一个"
+    }
   ],
-  "needs_env": [
-    "BOOKS_MCP_KEY"
-  ],
-  "run": "agent 直接调 MCP 工具，见 adapters/books-mcp/README.md",
-  "writes": "books/<key>.epub，并把 file 和 rights 写回 books.yaml"
+  "test_by_agent": "agent 要自己试一次：按 adapters/books-mcp/README.md 接上后调 search_books 搜一本书"
 }
