@@ -18,7 +18,7 @@
 
 ## 怎么写
 
-在期目录里放四个文件。完整的例子在 `examples/cover-strata/`。
+在期目录里放四个文件，照下面的写法写。`examples/cover-strata/` 是一个完整的例子，但它是照一份设计稿量着做的，画布、刊名位置都按稿子另写了 CSS，和下面的默认写法不一样；看它是为了知道能做到什么程度，不要照抄它的标记。
 
 **`cover.json`**（格式 `interfaces/schemas/cover.schema.json`）
 

@@ -20,8 +20,8 @@ description: 拾页：把一个人的笔记和收藏做成一本可打印的 A5 
 ## 第 2 步 出方案（做完停下，等用户点头）
 
 1. 按 `rules/editor/booklist.md` 写 `books.yaml`（格式 `interfaces/schemas/books.schema.json`）。用户点名想读的排最前。
-2. 取书（`interfaces/book-source.md`）：`books/` 里有的直接用；没有的，接了书库就按 `adapters/books-mcp/README.md` 取来存进 `books/`，把 `file:` 和 `rights` 写回 `books.yaml`。拿不到的留着。不编造全文，不用来源不明的文本。
-3. `python3 <skill>/run.py prepare books.yaml`：拆书，产出 `issues/<今天>/candidates.md`；缺的书记进 `缺书.md`，其余照常。
+2. 取书（`interfaces/book-source.md`）：`books/` 里有的直接用；没有的，你的工具里有 `search_books` 和 `get_book` 就按 `adapters/books-mcp/README.md` 取来，存成 `books/<书名>.<格式>`，把 `file:` 和 `rights` 写回 `books.yaml`。拿不到的留着。不编造全文，不用来源不明的文本。
+3. `python3 <skill>/run.py prepare books.yaml`：拆书，产出 `issues/<今天>/candidates.md`；没有文件的、扫描版的书记进 `缺书.md`，其余照常。它会给每本书起一个 `key`（打印在每行开头），`show` 和 `selection.json` 里的 `book` 用的就是它。全程不联网。
 4. 按 `rules/editor/selection.md` 选篇：5–6 篇，全期 80–100 页。用 `python3 <skill>/run.py show <期> <book> <章节号>` 读全文再定。超过 12000 字的章给 `excerpt`。
 5. 按 `rules/editor/language.md` 和 `context.md` 给每篇写导语（为什么是这一篇）。写进 `issues/<日期>/selection.json`（格式 `interfaces/schemas/selection.schema.json`），这时只需要 `book`、`chapter`、`excerpt`、`context`。
 6. `python3 <skill>/run.py plan`：生成 `方案.md`，里面有每篇选了什么、为什么、估多少页、缺哪些书。它提示篇数或页数不合适就回到第 4 条调。
@@ -29,8 +29,8 @@ description: 拾页：把一个人的笔记和收藏做成一本可打印的 A5 
 
 ## 第 3 步 做书
 
-1. 补全 `selection.json`：按 `rules/editor/summary.md` 写每篇的「本期选读」说明（`intro`），按 `footnotes.md` 写脚注（`notes`，`term` 从 `show` 的输出里原样复制）。
-2. 翻译（`rules/editor/translation.md`）：`python3 <skill>/run.py translate` 列出不是中文的篇，你一段对一段译成它指定的 `.json`，再跑一次直到全是中文。
+1. 翻译（`rules/editor/translation.md`）：`python3 <skill>/run.py translate` 列出不是中文的篇，你一段对一段译成它指定的 `.json`，再跑一次直到全是中文。你译的篇目，篇首页会署「AI 译」。
+2. 补全 `selection.json`：按 `rules/editor/summary.md` 写每篇的「本期选读」说明（`intro`），按 `footnotes.md` 写脚注（`notes`）。脚注的 `term` 要从印出来的文字里原样复制：中文书从 `show` 的输出里抄，你译的篇目从你的译文里抄。原书自己带脚注的篇目不再加你的脚注，两套编号会撞。
 3. 刊名（`rules/editor/title.md`）：两个字，从这一期的内容里来。
 4. 封面（`rules/editor/cover.md`）：读完全部选篇，找出它们共同在讲的一件事，取一个能画的意象，元素个数等于篇数、一篇一个颜色。在期目录里写 `cover.json`、`封面.html`、`封底.html`、`封面.css`。
 5. `python3 <skill>/run.py render`：排成 `<刊名>-<日期>.pdf`。第一次会自动微调版面，约两分钟。

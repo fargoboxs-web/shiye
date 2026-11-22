@@ -305,7 +305,7 @@ def _piece_view(piece: dict, book: dict, zh: dict | None, issue_dir: Path) -> di
         "title_sub": (re.split(r"[：:]", piece.get("title") or title, maxsplit=1) + [""])[1].strip(),
         "original_chapter": ch["title"],
         "chapter_label": chapter_label,
-        "translator": book.get("translator"),
+        "translator": book.get("translator") or ("AI" if zh else None),      # agent 自己译的，如实署「AI 译」
         "context_html": _squeeze(_spacing(inline(piece.get("context") or ""))),
         "intro_html": _squeeze(_spacing(inline(piece.get("intro") or ""))),
         "cover_path": (issue_dir / "books" / book["cover"]).resolve() if book.get("cover") else None,

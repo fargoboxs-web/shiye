@@ -58,7 +58,8 @@ def _squash(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip().lower()
 
 
-def validate(selection: dict, books: dict[str, dict]) -> list[str]:
+def validate(selection: dict, books: dict[str, dict], issue_dir: Path | None = None) -> list[str]:
+    from . import translate
     problems = []
     for n, piece in enumerate(selection.get("pieces", [])):
         tag = f"pieces[{n}]"
@@ -87,11 +88,14 @@ def validate(selection: dict, books: dict[str, dict]) -> list[str]:
         if len(context) > 600:
             problems.append(f"{tag}: 引子 {len(context)} 字，太长了（最多 600 字，扉页要放得下）")
         text = "\n".join(b["text"] for b in blocks if b["type"] != "img")
+        zh = translate.load(issue_dir, piece, book) if issue_dir else None
+        if zh:                                   # 外文篇：脚注的词要出现在译文里（印出来的是译文）
+            text = "\n".join(b.get("text", "") for b in zh["blocks"])
         for n, note in enumerate(piece.get("notes") or []):
             if not note.get("term") or not note.get("note"):
                 problems.append(f"{tag}.notes[{n}]: 要有 term 和 note")
             elif note["term"] not in text:
-                problems.append(f"{tag}.notes[{n}]: 正文里找不到「{note['term']}」")
+                problems.append(f"{tag}.notes[{n}]: {'译文' if zh else '正文'}里找不到「{note['term']}」（term 要从印出来的文字里原样复制）")
     for f in ("date",):          # 期数可以不填（interfaces/schemas/selection.schema.json）
         if not selection.get("issue", {}).get(f):
             problems.append(f"issue: 缺少 {f}")

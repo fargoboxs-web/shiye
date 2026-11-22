@@ -34,7 +34,7 @@ ROOT = Path(__file__).resolve().parent                    # skill 目录：引�
 HOME = Path(os.environ.get("SHIYE_HOME") or Path.cwd())   # 读者的工作目录：inbox/ books/ issues/ work/ reader.md .env
 sys.path.insert(0, str(ROOT))
 
-from zine import fetch, inbox, parse, render, select, translate  # noqa: E402
+from zine import inbox, parse, render, select, translate  # noqa: E402
 
 CONFIG = {"name": "拾页", "pad_to_4": True}   # 总页数补成 4 的倍数（骑马钉；差的页补成空白笔记页，放在封底前）
 BOOK_EXT = (".epub", ".pdf", ".txt", ".md", ".json", ".html")
@@ -155,7 +155,7 @@ def cmd_doctor(args):
         kind = {"notes": "笔记", "books": "书"}.get(m.get("kind"), "?")
         lack = adapter_missing(m)
         if lack:
-            print(f"– 【{kind}】{m.get('title', name)}：没接（.env 里缺 {'、'.join(lack)}）")
+            print(f"– 【{kind}】{m.get('title', name)}：没接（缺 {'、'.join(lack)}，写进工作目录的 .env）")
             continue
         state = "凭证已填"
         if m.get("test"):
@@ -200,31 +200,34 @@ def cmd_prepare(args) -> Path:
     entries = spec["books"] if isinstance(spec, dict) else spec
     issue = issue_dir(args.issue, create=True)
     (issue / "books").mkdir(parents=True, exist_ok=True)
-    cache = HOME / "cache"
     books, missing = {}, []
     for e in entries:
         if isinstance(e, str):
             e = {"title": e}
         key = e.get("key") or slug(e.get("original_title") or e["title"])
-        if not any(e.get(k) for k in ("file", "url", "gutenberg_id")):
+        if not e.get("file"):
             local = find_local_book(e, [booklist.parent / "books", HOME / "books"])
             if local:
                 e = {**e, "file": str(local)}
                 print(f"  《{e['title']}》没写 file，用本地文件 {local.name}")
-        try:
-            path, source = fetch.resolve(e, cache, booklist.parent)
-        except fetch.BookNotFound as err:
-            missing.append((e["title"], str(err)))
+        path = Path(e["file"]).expanduser() if e.get("file") else None
+        if path and not path.is_absolute():
+            path = booklist.parent / path
+        if not path or not path.exists():
+            missing.append((e["title"], "books/ 里没有这本书的电子书" if not e.get("file") else f"找不到文件 {e['file']}"))
             continue
         book = parse.parse(path)
+        body = sum(c.get("chars", 0) + c.get("words", 0) for c in book.get("chapters", []))
+        if not book.get("chapters") or body < 3000:
+            why = "是扫描版 PDF，没有文字层" if path.suffix.lower() == ".pdf" else "拆不出正文"
+            missing.append((e["title"], f"{path.name} {why}，用不了；换一个 EPUB 或带文字的版本"))
+            continue
         simplified = parse.maybe_simplify(book)
         n_img = parse.export_images(path, book, issue / "books" / f"{key}.img", f"{key}.img") if path.suffix.lower() == ".epub" else 0
         cover = parse.extract_cover(path)
         if cover:
             (issue / "books" / f"{key}.cover{cover[1]}").write_bytes(cover[0])
             book["cover"] = f"{key}.cover{cover[1]}"
-        meta = fetch.lookup_metadata(e["title"], e.get("author") or book.get("author"))
-        book.update({k: v for k, v in meta.items() if k not in book or k == "year"})
         book.update({k: v for k, v in e.items() if k in ("author", "year", "why_saved", "rights", "translator")})
         # 书名以 books.yaml 为准：电子书元数据里常是带副题和广告语的长串
         if book.get("title") and book["title"] != e["title"]:
@@ -232,14 +235,14 @@ def cmd_prepare(args) -> Path:
         book["title"] = e["title"]
         book["display_title"] = e.get("display_title") or e["title"]
         book["original_title"] = e.get("original_title") or (e["title"] if e.get("display_title") else None)
-        book["source"] = source + ("（公有领域）" if "Gutenberg" in source or e.get("public_domain") or e.get("rights") == "public_domain" else "") \
+        book["source"] = {"licensed": "书库（出版方授权）", "public_domain": "公版书"}.get(e.get("rights"), "读者自备电子书") \
             + ("，繁体转简体" if simplified else "")
         (issue / "books" / f"{key}.json").write_text(json.dumps(book, ensure_ascii=False, indent=1), encoding="utf-8")
         books[key] = book
         print(f"✓ {key}: {book.get('title')} / {book.get('author', '')}{'，' + book['translator'] + ' 译' if book.get('translator') else ''}"
               f" — {len(book['chapters'])} 章 [{book['source']}]{'，有封面' if cover else '，没找到封面'}，插图 {n_img} 张")
     if missing:
-        lines = ["# 缺书", "", "下面这些书没有拿到全文，这一期先不做它们。补上文件（放进 books/ 或在 books.yaml 写 file:）再跑一次 prepare。", ""]
+        lines = ["# 缺书", "", "下面这些书没有拿到能用的全文，这一期先不做它们。补上文件（放进 books/ 或在 books.yaml 写 file:）再跑一次 prepare。", ""]
         lines += [f"- 《{t}》：{why}" for t, why in missing]
         (issue / "缺书.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
         for t, why in missing:
@@ -270,7 +273,7 @@ def cmd_plan(args):
     books = load_books(issue)
     sel = json.loads((issue / "selection.json").read_text(encoding="utf-8"))
     sel.setdefault("issue", {}).setdefault("date", issue.name)
-    problems = select.validate(sel, books)
+    problems = select.validate(sel, books, issue)
     if problems:
         sys.exit("selection.json 有问题：\n  " + "\n  ".join(problems))
     rows, total = [], 3                                          # 封面、目录、封底
@@ -294,6 +297,9 @@ def cmd_plan(args):
     verdict = []
     if not 5 <= n <= 6:
         verdict.append(f"篇数 {n}，建议 5–6 篇")
+    long = [str(i) for i, r in enumerate(rows, 1) if int(re.search(r"估 (\d+) 页", r).group(1)) > 21]
+    if long:
+        verdict.append(f"第 {'、'.join(long)} 篇超过 20 页，偏长，节选短一点")
     if not 80 <= padded <= 100:
         verdict.append(f"估 {padded} 页，建议 80–100 页（{'太厚，减一篇或多节选' if padded > 100 else '偏薄，可以加一篇'}）")
     lines = [f"# 这一期的方案（{issue.name}）", "",
@@ -339,7 +345,7 @@ def cmd_render(args) -> Path:
     books = load_books(issue)
     sel = json.loads((issue / "selection.json").read_text(encoding="utf-8"))
     sel.setdefault("issue", {}).setdefault("date", issue.name)
-    problems = select.validate(sel, books)
+    problems = select.validate(sel, books, issue)
     if problems:
         sys.exit("selection.json 有问题：\n  " + "\n  ".join(problems))
     untranslated = translate.pending(issue, sel, books)

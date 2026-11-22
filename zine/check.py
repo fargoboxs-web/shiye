@@ -800,8 +800,9 @@ def check_runheads(iss: Issue, rep: Report):
             if hdr:
                 fail.append(f"第 {p} 页（{role}）不该有页眉，却有「{''.join(c['text'] for c in hdr)}」")
             continue
-        nums = [c for c in hdr if c["text"].isdigit()]
-        txt = "".join(c["text"] for c in hdr if not c["text"].isdigit()).strip()
+        # 页码是 8.5pt，页眉文字是 7.5pt：按字号分，书名里带数字（《大明王朝1566》）才不会并进页码
+        nums = [c for c in hdr if c["text"].isdigit() and c.get("size", 0) > 8]
+        txt = "".join(c["text"] for c in hdr if c not in nums).strip()
         num = "".join(c["text"] for c in sorted(nums, key=lambda c: c["x0"]))
         if num != str(p):
             fail.append(f"第 {p} 页页码印的是「{num}」")
