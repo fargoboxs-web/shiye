@@ -1,6 +1,6 @@
 # 读者画像
 
-> 匿名样例，内容是虚构的，只示范字段和写法。真实的 reader.md 放仓库根，不进 git。规则见 rules/editor/reader-profile.md。
+> 匿名样例，内容是虚构的，只示范字段和写法。真实的 reader.md 放在用户的工作目录里。规则见 rules/editor/reader-profile.md。
 
 ## 基本
 - 称呼：你

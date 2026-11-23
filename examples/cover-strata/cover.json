@@ -1,0 +1,27 @@
+{
+ "title": "底下",
+ "candidates": [
+  "暗线",
+  "地基"
+ ],
+ "layers": [
+  "#E3C9A0",
+  "#CF7745",
+  "#8C4A3A",
+  "#DDB04A",
+  "#54705F",
+  "#2F4A52",
+  "#1E2A30"
+ ],
+ "paper": "#F3EEE2",
+ "label_colors": [
+  "#7D5F2C",
+  "#A8512A",
+  "#8C4A3A",
+  "#7A5C14",
+  "#4B6555",
+  "#2F4A52",
+  "#1E2A30"
+ ],
+ "divider_edge": "wave"
+}

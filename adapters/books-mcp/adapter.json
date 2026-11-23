@@ -1,0 +1,19 @@
+{
+  "name": "books-mcp",
+  "title": "书库",
+  "kind": "books",
+  "does": "按书名取整本电子书",
+  "ask": [
+    {
+      "env": "BOOKS_MCP_URL",
+      "prompt": "书库的服务地址",
+      "how": "向给你这个 skill 的人要"
+    },
+    {
+      "env": "BOOKS_MCP_KEY",
+      "prompt": "书库的 key",
+      "how": "向给你这个 skill 的人要，每人一个"
+    }
+  ],
+  "test_by_agent": "agent 要自己试一次：按 adapters/books-mcp/README.md 接上后调 search_books 搜一本书"
+}

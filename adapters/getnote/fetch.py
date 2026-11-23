@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""可选的来源适配器：按 id 取 Get笔记 的原文，存进 work/full/<id>.json。
+"""连接器的帮手：按 id 取 Get笔记 的原文，存进 work/full/<id>.json。
 
   python3 adapters/getnote/fetch.py 1920347657994434784 1923693579251833424 …
   python3 adapters/getnote/fetch.py --from-digest work/notes-digest.md --grep 书单
@@ -44,7 +44,7 @@ def main():
     ap.add_argument("ids", nargs="*", help="笔记 id（带不带 getnote: 前缀都行）")
     ap.add_argument("--from-digest", help="从 notes-digest.md 里取 id")
     ap.add_argument("--grep", help="配合 --from-digest：只取匹配这个正则的行")
-    ap.add_argument("--out", default=str(HERE.parents[1] / "work" / "full"))
+    ap.add_argument("--out", default="work/full")
     args = ap.parse_args()
     ids = [i.split(":")[-1] for i in args.ids]
     if args.from_digest:

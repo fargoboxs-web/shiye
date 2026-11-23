@@ -15,6 +15,8 @@ import time
 import urllib.parse
 import urllib.request
 
+import sys as _sys; from pathlib import Path as _P; _sys.path.append(str(_P(__file__).resolve().parents[1]))
+import env as _env; _env.load()  # 工作目录的 .env
 BASE = os.environ.get("GETNOTE_API_URL", "https://openapi.biji.com/open/api/v1")
 TIMEOUT = 30
 

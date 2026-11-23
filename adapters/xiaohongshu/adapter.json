@@ -1,0 +1,35 @@
+{
+  "name": "xiaohongshu",
+  "title": "小红书公开收藏",
+  "kind": "notes",
+  "does": "取一个人公开的小红书收藏：正文、配图、视频逐字稿",
+  "ask": [
+    {
+      "env": "XHS_PROFILE",
+      "prompt": "小红书主页链接",
+      "how": "小红书 App 里「我」→ 右上角分享 → 复制链接。要先在 设置 → 隐私设置 里把收藏设成公开"
+    },
+    {
+      "env": "TIKHUB_API_KEY",
+      "prompt": "TikHub 的 API Key",
+      "how": "https://tikhub.io 注册后充值再生成，注册送的额度不能用于这个接口"
+    },
+    {
+      "env": "GETNOTE_API_KEY",
+      "prompt": "Get笔记 的 API Key（用它把帖子和视频转成文字）",
+      "how": "在 https://www.biji.com/openapi 建一个应用后生成"
+    },
+    {
+      "env": "GETNOTE_CLIENT_ID",
+      "prompt": "Get笔记 的 Client ID",
+      "how": "和 API Key 在同一页"
+    }
+  ],
+  "pull": [
+    "pull.py",
+    "--max",
+    "50"
+  ],
+  "costs": "TikHub 每 6 条约 0.01 美元，50 条不到 0.1 美元",
+  "account_changes": "会在 Get笔记 里新建带「小红书收藏」标签的链接笔记，默认保留"
+}

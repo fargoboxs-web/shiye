@@ -4,9 +4,9 @@
 
 把手头有的东西放进去，格式不限：`.md` `.txt` `.json` `.jsonl` `.csv` `.html`，一个文件一条或一个文件很多条都行；子文件夹也行（小红书下载工具每篇一个文件夹，文件夹里的正文和图片算一条）。文件名里有日期（`2026-10-01`、`20261001`）就当作时间，没有也行。图片放旁边，同名或同文件夹就配对。
 
-来源给的 `text` 不一定是原文：Get笔记 的列表接口只给 AI 摘要，`pull.py --full` 或 `adapters/getnote/fetch.py <id>` 才取原文（存 `work/full/`）。引用读者原话、核对书名之前，先确认手里是原文。
+来源给的 `text` 不一定是原文：Get笔记 的列表接口只给 AI 摘要，`run.py pull` 默认取原文；单独按 id 取用 `adapters/getnote/fetch.py <id>`（存 `work/full/`）。引用读者原话、核对书名之前，先确认手里是原文。
 
-AI 可以直接读 `inbox/`。`python3 run.py ingest inbox/` 是帮手：把能认出来的都归成 `work/notes.jsonl`，并写一份 `work/notes-digest.md`（每条一两行）给 AI 扫；认不出来的文件列出来，AI 自己看。笔记是隐私，`inbox/` 和 `work/` 都不进仓库。
+agent 可以直接读 `inbox/`。`python3 <skill>/run.py pull` 先按接上的连接器拉取，再把能认出来的都归成 `work/notes.jsonl`，并写一份 `work/notes-digest.md`（每条一两行）给 AI 扫；认不出来的文件列出来，AI 自己看。笔记是隐私，`inbox/` 和 `work/` 都不进仓库。
 
 ## notes.jsonl：唯一硬格式
 
@@ -27,4 +27,4 @@ AI 可以直接读 `inbox/`。`python3 run.py ingest inbox/` 是帮手：把能�
 | `time` | 否 | ISO 8601；没有就空 |
 | `title`、`url`、`images`、`tags`、`note` | 否 | 有就带上，引子要回原文看、封底要追溯来源都靠 `url` |
 
-JSON Schema：`schemas/notes.schema.json`。`ingest` 认的别名：`content`/`body`/`desc` → `text`，`created_at`/`saved_at`/`date` → `time`，`link` → `url`，`my_note`/`comment` → `note`。
+JSON Schema：`schemas/notes.schema.json`。`run.py pull` 整理时认的别名：`content`/`body`/`desc` → `text`，`created_at`/`saved_at`/`date` → `time`，`link` → `url`，`my_note`/`comment` → `note`。

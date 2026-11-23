@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """拾页成品的硬指标检查：对渲染好的一期（PDF + 同名 HTML + selection.json）量数字、对规则。
 
-用法：python3 check.py <期目录> [--out 报告.md] [--tail-lines 5] [--booklet]
+用法：python3 check.py <期目录> [--out 报告.md] [--tail-lines 5]（平时用 run.py check）
   期目录里自动找 拾页-*.pdf、同名 .html、selection.json。
   报告写成 Markdown（默认 <期目录>/检查报告.md；目录只读时用 --out 指到别处），stdout 打印摘要。
   --tail-lines N   篇末页正文少于 N 行算过短（默认 5）
@@ -73,14 +73,20 @@ SIZE_TABLE = [
     ("引文（楷体段）", "KaiTi", 10.0, ""),
     ("节标题", "HeiTi", 11.5, ""),
     ("小节标题", "HeiTi", 10.5, ""),
-    ("篇名", "HeiTi", 16.0, ""),
-    ("扉页书名", "HeiTi", (20.0, 22.0), "rules/typesetting 写 20pt，render.py 按书名长度 20–22pt"),
-    ("扉页引子", "KaiTi", 10.5, ""),
-    ("扉页摘要", "SongTi", 10.0, ""),
+    ("篇名", "SongTi", 17.0, "2026-11 起宋体粗体"),
+    ("篇名副题", "SongTi", (12.0, 12.0), "带冒号的篇名，后半句另起一行"),
+    ("扉页篇名", "SongTi", (25.5, 22.5), "25.5pt；篇名长、挨着书影时 22.5pt"),
+    ("扉页序号", "SongTi", (48.0,), "48pt"),
+    ("扉页引子", "KaiTi", (12.0,), "12pt"),
+    ("扉页摘要", "SongTi", 9.4, ""),
+    ("扉页章节名", "SongTi", 10.5, ""),
+    ("扉页小字", "SongTi", 9.0, "书名作者、「本期选读」、页码"),
+    ("目录篇名", "SongTi", 12.0, ""),
+    ("目录页码", "SongTi", 18.0, ""),
     ("方框栏目", "SongTi", 9.5, ""),
     ("方框标题", "HeiTi", 10.0, ""),
     ("脚注", "SongTi", 9.0, "rules/typesetting 字号表写 8.5pt、「脚注」一节写 9pt；模板 .fn 是 9pt"),
-    ("图注", "HeiTi", 8.5, ""),
+    ("图注", "KaiTi", 9.0, "2026-11 起楷体小五"),
     ("页眉", "HeiTi", 7.5, ""),
     ("页码", "HeiTi", 8.5, "rules/typesetting 字号表写「反白在小黑框里」，「页面」一节写普通数字；模板是普通数字"),
 ]
@@ -127,20 +133,6 @@ def hex_to_lab(h: str) -> tuple[float, float, float]:
     L = 116 * f(y) - 16
     a, b = 500 * (f(x) - f(y)), 200 * (f(y) - f(z))
     return round(L, 1), round(y, 3), round(math.hypot(a, b), 1)   # (L*, 相对亮度, 彩度 C*)
-
-
-def delta_e(h1: str, h2: str) -> float:
-    """两色的 CIE76 ΔE（验收 C7 用它量底色对拾页红的距离）"""
-    def lab(h):
-        r, g, b = (int(h[i:i + 2], 16) / 255 for i in (1, 3, 5))
-        lin = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in (r, g, b)]
-        y = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
-        x = (0.4124 * lin[0] + 0.3576 * lin[1] + 0.1805 * lin[2]) / 0.95047
-        z = (0.0193 * lin[0] + 0.1192 * lin[1] + 0.9505 * lin[2]) / 1.08883
-        f = lambda t: t ** (1 / 3) if t > 0.008856 else 7.787 * t + 16 / 116
-        return 116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))
-    a, b = lab(h1), lab(h2)
-    return round(math.sqrt(sum((p - q) ** 2 for p, q in zip(a, b))), 1)
 
 
 def rgb_close(c, target, tol=0.02) -> bool:
@@ -196,7 +188,25 @@ def classify(line: Line, role: str) -> str:
     t = line.text.strip()
     if line.top < HEAD_ZONE and role in ("article",):
         return "runhead"
+    if f == "SongTi" and role == "divider":              # 2026-11 起扉页全用宋体（导语楷体）
+        if s >= 40: return "num"
+        if w == "Bold" and s >= 19: return "bt"
+        if s == 12.0: return "sub"
+        if s == 10.5: return "pick"
+        if s == 9.4: return "intro"
+        if s == 9.0: return "dsmall"
+    if f == "SongTi" and role == "contents":
+        if s == 19.5: return "toc-lab"
+        if s == 18.0: return "toc-p"
+        if s == 12.0: return "toc-h"
+        if s == 9.8: return "toc-n"
+        if s == 9.0: return "toc-b"
     if f == "SongTi":
+        if w == "Bold" and s >= 19: return "bt"          # 扉页篇名
+        if w == "Bold" and s == 17.0: return "h2"         # 正文首页篇名
+        if w == "Bold" and s in (12.0, 13.0): return "sub"   # 篇名的副题行
+        if role == "divider" and s == 10.0 and w: return "bk"   # 扉页上的《书名》
+        if role == "divider" and s == 9.5: return "intro"
         if s == 10.5: return "body"
         if s == 9.0 and role == "article" and line.x0 < LEFT + 2: return "fn"
         if s == 9.0: return "toc-b"
@@ -207,7 +217,9 @@ def classify(line: Line, role: str) -> str:
         if s <= FN_CALL_MAX: return "call"
         return "song-other"
     if f == "KaiTi":
+        if s == 9.0: return "caption"
         if s == 10.0: return "quote"
+        if s in (12.0, 13.5) and role == "divider": return "lead"
         if s == 10.5: return "lead" if role == "divider" else "epi"
         if s >= 40: return "mast"
         return "kai-other"
@@ -266,9 +278,9 @@ class Report:
 # ---------------------------------------------------------------- 主体
 
 class Issue:
-    def __init__(self, issue_dir: Path):
+    def __init__(self, issue_dir: Path, pdf_path: Path | None = None):
         self.dir = issue_dir
-        pdfs = sorted(issue_dir.glob(f"*-{issue_dir.name}.pdf")) or sorted(issue_dir.glob("*.pdf"))
+        pdfs = [pdf_path] if pdf_path else (sorted(q for q in issue_dir.glob(f"*-{issue_dir.name}.pdf") if q.with_suffix(".html").exists()) or sorted(q for q in issue_dir.glob("*.pdf") if q.with_suffix(".html").exists()))   # --pdf 可以指定查哪一份（方案 A / B 各一份时）
         if not pdfs:
             sys.exit(f"{issue_dir} 里没有排好的 PDF（先跑 run.py render）")
         self.pdf_path = pdfs[-1]
@@ -309,11 +321,15 @@ class Issue:
         # 扉页 = 第 1 级且题目是「《…》」的；该篇正文首页 = 紧随其后的第 1 级书签页（没有就扉页 + 1）
         lvl1 = [(pg, t) for d, t, pg in outline if d == 1]
         dividers, starts = [], []
+        # 2026-11 起扉页的大字从「《书名》」改成了篇名：扉页和正文首页是连着两个同名的第 1 级书签
         for i, (pg, t) in enumerate(lvl1):
+            nxt = lvl1[i + 1] if i + 1 < len(lvl1) else None
             if re.fullmatch(r"《.+》", t.strip()):
                 dividers.append(pg)
-                nxt = lvl1[i + 1] if i + 1 < len(lvl1) else None
                 starts.append((nxt[0], nxt[1]) if nxt and not re.fullmatch(r"《.+》", nxt[1].strip()) else (pg + 1, ""))
+            elif nxt and nxt[1].strip() == t.strip() and nxt[0] > pg and pg not in [s0 for s0, _ in starts]:
+                dividers.append(pg)
+                starts.append((nxt[0], nxt[1]))
         if not dividers:   # 没书签：扉页 = 无页眉、有大黑体书名的页
             for p in range(2, n):
                 ls = self.lines[p]
@@ -354,6 +370,10 @@ class Issue:
 
     def book_title(self, k: int) -> str:
         """第 k 篇的书名（从正文首页的出处行「《书名》作者」取）"""
+        if self.soup:   # 正文首页不再印出处行，书名从 HTML 里取
+            rh = self.soup.select("section.article .runhead")
+            if 0 < k <= len(rh):
+                return rh[k - 1].get_text("", strip=True)
         s = self.articles[k - 1][1]
         for l in self.lines[s]:
             if l.style == "from":
@@ -472,10 +492,14 @@ def check_images(iss: Issue, rep: Report):
             if im["x1"] > RIGHT + pad + 1: out.append(f"右出 {mm(im['x1'] - RIGHT):.1f}mm")
             if im["top"] < TOP - pad - 1: out.append(f"上出 {mm(TOP - im['top']):.1f}mm")
             if im["bottom"] > BOT + pad + 1: out.append(f"下出 {mm(im['bottom'] - BOT):.1f}mm")
+            if role == "divider" and not (iss.soup and iss.soup.select_one("section.divider .top")):
+                # 2026-11 起扉页整页出血、不按版心排；书影（连阴影边）只要离纸边 ≥ 5mm 就行
+                W_pt, H_pt = iss.pdf.pages[p - 1].width, iss.pdf.pages[p - 1].height
+                out = [f"离纸边不足 5mm"] if min(im["x0"], im["top"], W_pt - im["x1"], H_pt - im["bottom"]) < 5 * MM else []
             if out:
                 fail.append(f"第 {p} 页 {kind} 超出版心：{'、'.join(out)}")
-            if role == "article" and h > 86 * MM + 1:   # 验收 F2：高 ≤ 86mm（版心 1/2）；模板 max-height 同值
-                fail.append(f"第 {p} 页 插图高 {mm(h):.1f}mm > 86mm 上限")
+            if role == "article" and h > 105 * MM + 1:
+                fail.append(f"第 {p} 页 插图高 {mm(h):.1f}mm > 105mm 上限")
             if role == "divider" and abs(h - 65.6 * MM) > 0.5 * MM:
                 warn.append(f"第 {p} 页 书影高 {mm(h):.1f}mm（含阴影边应为 65.6mm）")
             # 原图检查（需要本机能找到图）
@@ -603,7 +627,8 @@ def check_layout(iss: Issue, rep: Report):
         if ims: dv.append(round(mm(ims[0]["top"]) + 4.8, 1))
     if dv:
         ev.append(f"扉页书影顶 + 4.8mm 阴影边 = {sorted(set(dv))}mm（期望 {MARGIN['top']}mm）")
-        if any(abs(v - MARGIN["top"]) > 0.5 for v in dv): bad.append("扉页天头不对")
+        if iss.soup and iss.soup.select_one("section.divider .top") and any(abs(v - MARGIN["top"]) > 0.5 for v in dv):
+            bad.append("扉页天头不对")      # 只对旧版扉页；2026-11 起扉页整页出血，书影位置由模板定
     rep.add("⑤", "正文版式（字号/行距/每行字数/版心）", "不通过" if bad else "通过",
             "；".join(bad) if bad else f"10.5pt 占 {share:.1%}，行距 {pm}pt，每行 {cm} 字，左 {mm(l0):.1f}mm、天头 {mm(box_top) if firsttop else 0:.1f}mm，全部在容差内", ev)
     # 字号表对照
@@ -616,7 +641,8 @@ def check_layout(iss: Issue, rep: Report):
                         found[("pageno" if c["text"].isdigit() else "runhead", fam(c["fontname"]), round(c["size"], 1))] += 1
                 continue
             found[(l.style, fam(l.font), l.size)] += 1
-    style_of = {"正文": "body", "引文（楷体段）": "quote", "节标题": "h4", "小节标题": "h5", "篇名": "h2", "扉页书名": "bt",
+    style_of = {"正文": "body", "引文（楷体段）": "quote", "节标题": "h4", "小节标题": "h5", "篇名": "h2", "篇名副题": "sub", "扉页篇名": "bt", "扉页序号": "num",
+                "扉页章节名": "pick", "扉页小字": "dsmall", "目录篇名": "toc-h", "目录页码": "toc-p",
                 "扉页引子": "lead", "扉页摘要": "intro", "方框栏目": "box", "方框标题": "boxtitle", "脚注": "fn", "图注": "caption",
                 "页眉": "runhead", "页码": "pageno"}
     tev, tbad = [], []
@@ -744,17 +770,20 @@ def check_tail_pages(iss: Issue, rep: Report, min_lines: int):
             fail.append(f"第 {e} 页（第 {k} 篇末页）正文只有 {len(body)} 行" + ("，整页只剩方框" if box and not body else ""))
     rep.add("⑨", f"篇末页正文 ≥ {min_lines} 行", "不通过" if fail else "通过",
             "；".join(fail) if fail else f"{len(iss.articles)} 篇篇末页正文都 ≥ {min_lines} 行", fail + ev)
-    # 篇幅（rules/editor/selection.md、验收 W9）：篇数 3–6；每篇 5000–12000 汉字；全期 ≤ 96 页。「6–20 页」「长短比」W9 已删
+    # 篇幅：reader.md 5000–12000 字；最长篇页数 ≤ 最短篇 × 2
     lens = [(k, e - s + 1, cnt) for (k, s, e, _), cnt in zip(iss.articles, chars_of)]
     if lens:
+        mx, mn = max(v for _, v, _ in lens), min(v for _, v, _ in lens)
         w = [f"第 {k} 篇 {v} 页 {c} 字" for k, v, c in lens]
         warn = []
-        if not 3 <= len(lens) <= 6: warn.append(f"篇数 {len(lens)}，超出 3–6")
-        if iss.n > 96: warn.append(f"全期 {iss.n} 页 > 96")
+        if mx > 2 * mn: warn.append(f"最长 {mx} 页超过最短 {mn} 页的 2 倍")
+        if not 3 <= len(lens) <= 6: warn.append(f"篇数 {len(lens)}，超出 3–6（5–6 最合适）")
+        if iss.n > 100: warn.append(f"全期 {iss.n} 页 > 100，拿着偏重")
         for k, v, c in lens:
+            if not 6 <= v <= 20: warn.append(f"第 {k} 篇 {v} 页，超出 6–20 页")
             if not 5000 <= c <= 12000: warn.append(f"第 {k} 篇正文约 {c} 字，超出 5000–12000 字")
-        rep.add("⑨b", "篇幅（篇数 3–6、每篇 5000–12000 字、全期 ≤ 96 页）", "警告" if warn else "通过",
-                "；".join(warn) if warn else f"{len(lens)} 篇、{iss.n} 页，每篇字数都在 5000–12000", w)
+        rep.add("⑨b", "篇幅（每篇 6–20 页、5000–12000 字、最长 ≤ 最短 × 2）", "警告" if warn else "通过",
+                "；".join(warn) if warn else f"最长 {mx} / 最短 {mn} 页，字数都在 5000–12000", w)
 
 
 def check_runheads(iss: Issue, rep: Report):
@@ -771,8 +800,9 @@ def check_runheads(iss: Issue, rep: Report):
             if hdr:
                 fail.append(f"第 {p} 页（{role}）不该有页眉，却有「{''.join(c['text'] for c in hdr)}」")
             continue
-        nums = [c for c in hdr if c["text"].isdigit()]
-        txt = "".join(c["text"] for c in hdr if not c["text"].isdigit()).strip()
+        # 页码是 8.5pt，页眉文字是 7.5pt：按字号分，书名里带数字（《大明王朝1566》）才不会并进页码
+        nums = [c for c in hdr if c["text"].isdigit() and c.get("size", 0) > 8]
+        txt = "".join(c["text"] for c in hdr if c not in nums).strip()
         num = "".join(c["text"] for c in sorted(nums, key=lambda c: c["x0"]))
         if num != str(p):
             fail.append(f"第 {p} 页页码印的是「{num}」")
@@ -784,7 +814,9 @@ def check_runheads(iss: Issue, rep: Report):
         else:            # 单页：页码右上、本篇书名
             if nx1 < iss.pdf.pages[p - 1].width - 60: fail.append(f"第 {p} 页（单页）页码在左边 x={mm(nx0):.1f}mm")
             bt = iss.book_title(iss.article_of[p])
-            if bt and txt != bt: fail.append(f"第 {p} 页（单页）页眉应是「{bt}」，印的是「{txt}」")
+            if p in iss.first_pages: bt, ok_empty = "", True     # 每篇首页的页眉不印书名
+            else: ok_empty = False
+            if (bt or ok_empty) and txt != bt: fail.append(f"第 {p} 页（单页）页眉应是「{bt}」，印的是「{txt}」")
         edge = min(nx0, iss.pdf.pages[p - 1].width - nx1)
         ev.append((p, round(mm(edge), 1), round(mm(min(c["top"] for c in nums)), 1)))
     edges = sorted({e for _, e, _ in ev}); tops = sorted({t for _, _, t in ev})
@@ -814,6 +846,15 @@ def check_toc(iss: Issue, rep: Report):
         m = re.match(r"^(\d{2})(.+?)(\d+)$", l.text.strip())
         if m and fam(l.font) == "HeiTi":
             entries.append((int(m.group(1)), m.group(2).strip(), int(m.group(3))))
+    if not entries and iss.soup:   # 2026-11 起的目录版式：篇名从 HTML 取，页码是目录页上单独成行的大号数字
+        titles = [h.get_text("", strip=True) for h in iss.soup.select("section.contents a .h")]
+        nums = []                # 新目录里篇名和右边的大页码在同一行：行尾的数字就是页码
+        for t in titles:
+            key = re.sub(r"\s", "", t)
+            hit = next((l for l in iss.lines[2] if re.sub(r"\s", "", l.text).startswith(key)), None)
+            m = re.search(r"(\d+)$", re.sub(r"\s", "", hit.text)[len(key):]) if hit else None
+            nums.append(int(m.group(1)) if m else -1)
+        entries = [(i + 1, t, pg) for i, (t, pg) in enumerate(zip(titles, nums))]
     if len(entries) != len(iss.articles):
         fail.append(f"目录 {len(entries)} 条，篇数 {len(iss.articles)}")
     for (i, title, pg), (k, s, e, t) in zip(entries, iss.articles):
@@ -821,11 +862,11 @@ def check_toc(iss: Issue, rep: Report):
         h2 = next((l.text.strip() for l in iss.lines[s] if l.style == "h2"), "")
         ev.append(f"目录 {i:02d}「{title}」→ 第 {pg} 页；扉页第 {div} 页、正文第 {s} 页篇名「{h2}」")
         if pg != div: fail.append(f"目录第 {i} 条页码 {pg}，扉页在第 {div} 页")
-        if title != h2: fail.append(f"目录第 {i} 条篇名「{title}」≠ 正文「{h2}」")
+        if title != h2 and re.split(r"[：:]", title)[0] != h2: fail.append(f"目录第 {i} 条篇名「{title}」≠ 正文「{h2}」")
     for d, t, pg in iss.outline:   # 第 1 级书签：「《书名》」要指向扉页，篇名要指向正文首页
         if d == 1 and re.fullmatch(r"《.+》", t.strip()) and pg not in iss.dividers:
             fail.append(f"书签「{t}」指向第 {pg} 页，不是扉页")
-        if d == 1 and not re.fullmatch(r"《.+》", t.strip()) and pg not in iss.first_pages:
+        if d == 1 and not re.fullmatch(r"《.+》", t.strip()) and pg not in iss.first_pages and pg not in iss.dividers:
             fail.append(f"书签「{t}」指向第 {pg} 页，不是正文首页")
     rep.add("⑪", "目录页码与篇名", "不通过" if fail else "通过",
             "；".join(fail) if fail else f"{len(entries)} 条目录页码都等于扉页页码，篇名与正文一致；书签 {len(iss.outline)} 条", ev)
@@ -856,7 +897,8 @@ def check_forbidden_words(iss: Issue, rep: Report):
         y, mth = cn_date(date)
         for p, nm in ((1, "封面"), (iss.n, "封底")):
             t = "".join(l.text for l in iss.lines[p])
-            if y not in t or mth not in t:
+            need_c, have_c = collections.Counter(y + mth), collections.Counter(t)
+            if any(have_c[ch] < k for ch, k in need_c.items()):
                 fail.append(f"{nm}没有汉字日期「{y}{mth}」，印的是「{t}」")
             if re.search(r"\d", t):
                 fail.append(f"{nm}出现阿拉伯数字：「{t}」")
@@ -880,9 +922,9 @@ def check_divider_text(iss: Issue, rep: Report):
     if iss.soup:
         kinds, no_tr = set(), []
         for i, d in enumerate(iss.soup.select("section.divider"), 1):
-            need = {"书影": d.select_one(".top img"), "序号": d.select_one(".num"), "书名": d.select_one(".bt"),
+            need = {"书影": d.select_one(".cv") or d.select_one(".top img"), "序号": d.select_one(".num"), "篇名": d.select_one(".pt") or d.select_one(".bt"), "书名": d.select_one(".bk") or d.select_one(".bt"),
                     "作者年份": d.select_one(".by"), "引子": d.select_one("p.lead"), "本期选读": d.select_one(".lab"),
-                    "章节": d.select_one(".pick"), "摘要": d.select_one(".sec:last-child p")}
+                    "章节": d.select_one(".pick"), "摘要": d.select_one(".sec p")}
             miss = [k for k, v in need.items() if v is None]
             if miss: fail.append(f"第 {i} 篇扉页缺 {miss}")
             pick = need["章节"].get_text(strip=True) if need["章节"] else ""
@@ -890,7 +932,7 @@ def check_divider_text(iss: Issue, rep: Report):
             kinds.add("阿拉伯" if m and m.group(1).isdigit() else ("汉字" if m else "不合式"))
             ev.append(f"第 {i} 篇章节标签「{pick}」")
             by = need["作者年份"]
-            if by is not None and by.find("br") is not None and "译" not in by.get_text():   # 有原书名 = 译本，by 行该有译者
+            if by is not None and re.search(r"[A-Za-z]{3,}", by.get_text()) and "译" not in by.get_text():   # 有原书名 = 译本，by 行该有译者
                 no_tr.append(str(i))
         if len(kinds) > 1 or "不合式" in kinds:
             warn.append(f"章节标签体例不一：{sorted(kinds)}（统一成「第 N 章　章名」）")
@@ -938,7 +980,8 @@ def check_punct(iss: Issue, rep: Report):
 def check_cover(iss: Issue, rep: Report):
     """⑮ 封面底色亮度：L* ≥ 75（家用打印机大面积深色易发花）；封面封底同色"""
     field = None
-    m = re.search(r"@page cover\s*\{[^}]*background:\s*(#[0-9A-Fa-f]{6})", iss.html)
+    ms = list(re.finditer(r"@page cover\s*\{[^}]*background:\s*(#[0-9A-Fa-f]{6})", iss.html))
+    m = ms[-1] if ms else None           # 每期的 封面.css 接在样式表最后，后写的那条才是生效的底色
     if m: field = m.group(1).upper()
     rects = [r for r in iss.pdf.pages[0].rects if r["width"] > 400 and r["height"] > 580]
     pdf_field = None
@@ -958,28 +1001,26 @@ def check_cover(iss: Issue, rep: Report):
     L, y, _ = hex_to_lab(field)
     ev.append(f"底色 {field}：L* = {L}，相对亮度 {y:.2f}")
     if L < 75: warn.append(f"底色 {field} L* = {L} < 75，家用打印机大面积深色易发花")
-    if back_field and back_field != field: fail.append(f"封底底色 {back_field} ≠ 封面 {field}")
+    cmp_field = pdf_field or field
+    if back_field and back_field != cmp_field: fail.append(f"封底底色 {back_field} ≠ 封面 {cmp_field}")
     # 三纸色对底色的对比：黑 ≥ 7:1、米白 ΔL* ≥ 18、第三色对比 ≥ 2.5:1；纸不该透明
     svg = re.search(r'<section class="cover">(.*?)</section>', iss.html, re.S)
-    if svg:
+    custom = (iss.dir / "封面.html").exists()     # 封面每期由 agent 设计：期目录里的 封面.html
+    if svg and custom:
+        # 单独设计的封面，封底可以和封面不同底色（比如「底下」封底是整页深色），这一条只记不判
+        for f in [f for f in fail if f.startswith("封底底色")]:
+            fail.remove(f); ev.append(f + "：本期封面是单独设计的，封底底色由设计定，不判")
         fills = []
         for f in re.findall(r'fill="(#[0-9A-Fa-f]{6})"', svg.group(1)):
             if f.upper() not in fills: fills.append(f.upper())
-        ops = {o for o in re.findall(r'fill-opacity="([\d.]+)"', svg.group(1))}
-        for f in fills:
-            Lf, yf, Cf = hex_to_lab(f)
-            ratio = (max(y, yf) + 0.05) / (min(y, yf) + 0.05)
-            kind = "深色纸" if Lf < 40 and Cf < 20 else ("浅色纸" if Lf > 85 and Cf < 20 else "彩色纸")
-            ev.append(f"纸色 {f}（{kind}）：L* {Lf}、彩度 {Cf}，与底色 ΔL* {abs(L - Lf):.0f}，对比 {ratio:.1f}:1，ΔE {delta_e(f, field)}")
-            if kind == "深色纸" and ratio < 7: warn.append(f"深色纸 {f} 对底色对比 {ratio:.1f}:1 < 7")
-            if kind == "浅色纸" and abs(L - Lf) < 18: warn.append(f"浅色纸 {f} 与底色 ΔL* 只有 {abs(L - Lf):.0f} < 18，印出来会和底色混在一起")
-            if kind == "彩色纸" and delta_e(f, field) < 30:   # 验收 C7：底色对拾页红 ΔE（CIE76）≥ 30
-                warn.append(f"彩色纸 {f} 与底色 ΔE 只有 {delta_e(f, field)} < 30，纸和底色分不开")
-        if not any(abs(hex_to_lab(f)[0] - hex_to_lab("#B5432B")[0]) < 12 and hex_to_lab(f)[2] > 40 and int(f[1:3], 16) > int(f[5:7], 16) for f in fills):
-            warn.append("封面三纸色里没有拾页红（内页 accent #B5432B，封面可用 #D94F2B）：封面和内页没有共同的一色")
-        if any(float(o) < 1 for o in ops):
-            warn.append(f"封面图案 fill-opacity={sorted(ops)}，纸是半透明的：叠色处多出第 5、6 种颜色，送厂要拍平透明")
-        ev.append(f"封面 {len(re.findall('<rect', svg.group(1)))} 张纸、{len(fills)} 种纸色 {fills}")
+        ev.append(f"本期单独设计的封面，用色 {fills}")
+        layers = [str(c).upper() for c in (iss.sel.get("issue", {}).get("layers") or [])]
+        if layers:
+            lost = [c for c in layers if c not in fills]
+            ev.append(f"cover.json 的 layers {layers}")
+            if lost: warn.append(f"扉页和目录用的颜色 {lost} 不在封面上：内页的颜色应取自封面")
+    else:
+        fail.append("封面还没设计：期目录里没有 封面.html、封底.html（做法见 rules/editor/cover.md）")
     # 封面上只许有刊名和日期
     cover_txt = "".join(l.text for l in iss.lines[1]).strip()
     if len(cover_txt) > 10 or iss.pdf.pages[0].images:
@@ -989,16 +1030,10 @@ def check_cover(iss: Issue, rep: Report):
 
 
 def check_cover_bitmap(iss: Issue, rep: Report):
-    """⑮b 封面封底摊平成一把扇子：书脊两侧 2mm 像素列颜色序列一致率 ≥ 95%（只对 fan 图案；stack / scatter / svg 的封底是镜像，不要求接续）；封面墨量（家用打印）"""
+    """⑮b 封面墨量（家用打印）；顺带记下书脊两侧 2mm 的颜色是否接得上"""
     import tempfile
     from PIL import Image
     fail, warn, ev = [], [], []
-    motif = "fan"
-    if (iss.dir / "cover.json").exists():
-        try:
-            motif = json.loads((iss.dir / "cover.json").read_text(encoding="utf-8")).get("motif") or "fan"
-        except Exception:
-            pass
     with tempfile.TemporaryDirectory() as td:
         for tag, pg in (("c", 1), ("b", iss.n)):
             subprocess.run(["pdftoppm", "-r", "40", "-f", str(pg), "-l", str(pg), "-png", str(iss.pdf_path), f"{td}/{tag}"], capture_output=True)
@@ -1006,19 +1041,18 @@ def check_cover_bitmap(iss: Issue, rep: Report):
             a = Image.open(next(Path(td).glob("c-*.png"))).convert("RGB")
             b = Image.open(next(Path(td).glob("b-*.png"))).convert("RGB")
         except StopIteration:
-            rep.add("⑮b", "封面封底拼合与墨量", "警告", "pdftoppm 没渲染出封面", []); return
+            rep.add("⑮b", "封面墨量", "警告", "pdftoppm 没渲染出封面", []); return
     W, H = a.size
     px_mm = W / A5[0]
     n = max(1, int(2 * px_mm))
     # 封面是右页、书脊在左；封底是左页、书脊在右。各取靠书脊 2mm 的列，逐像素比
-    pa = [a.getpixel((x, y)) for y in range(H) for x in range(n)]
-    pb = [b.getpixel((W - 1 - x, y)) for y in range(H) for x in range(n)]
+    # 最外面那一列像素不比：页宽不是整数个像素，纸边那一列是半个像素、和白底混过色
+    pa = [a.getpixel((x, y)) for y in range(H) for x in range(1, n + 1)]
+    pb = [b.getpixel((W - 1 - x, y)) for y in range(H) for x in range(1, n + 1)]
     same = sum(1 for u, v in zip(pa, pb) if max(abs(i - j) for i, j in zip(u, v)) < 24) / len(pa)
     ev.append(f"书脊两侧各 2mm 的像素列：封面左缘与封底右缘颜色一致率 {same:.0%}（40dpi 渲染）")
-    if same < 0.95 and motif == "fan":
-        fail.append(f"书脊两侧颜色序列一致率 {same:.0%} < 95%：摊平后前后封面在书脊处接不上，不是一整把扇子")
-    elif motif != "fan":
-        ev.append(f"图案是 {motif}，封底是封面的镜像，不要求书脊处接续")
+    if same < 0.95:
+        ev.append("封面封底不要求在书脊处接上，这一条只记不判")
     # 墨量：简单 RGB→CMYK 取 (C+M+Y+K)/4 的均值；深色面积 = 亮度 < 25% 的像素占比
     def cmyk(r, g, b):
         k = 1 - max(r, g, b) / 255
@@ -1032,8 +1066,8 @@ def check_cover_bitmap(iss: Issue, rep: Report):
     ev.append(f"封面平均墨量约 {ink:.0%}（(C+M+Y+K)/4 均值），亮度 < 25% 的深色面积 {dark:.0%}")
     if ink > 0.30: warn.append(f"封面平均墨量 {ink:.0%} > 30%，80g 纸喷墨会卷、透到目录页；封面用 ≥ 120g 纸")
     if dark > 0.25: warn.append(f"封面深色面积 {dark:.0%} > 25%")
-    rep.add("⑮b", "封面封底拼合与墨量", "不通过" if fail else ("警告" if warn else "通过"),
-            "；".join(fail + warn) if fail or warn else (f"书脊处颜色一致率 {same:.0%}，摊平是一把扇子；墨量 {ink:.0%}" if motif == "fan" else f"图案 {motif}；墨量 {ink:.0%}"), fail + warn + ev)
+    rep.add("⑮b", "封面墨量", "不通过" if fail else ("警告" if warn else "通过"),
+            "；".join(fail + warn) if fail or warn else f"墨量 {ink:.0%}", fail + warn + ev)
 
 
 # ---- 以下是硬指标里能顺手量的几条（审稿时发现的硬伤）
@@ -1151,6 +1185,8 @@ def check_red(iss: Issue, rep: Report):
     # 内页文字颜色集合：只许墨 #1E1D1A、灰 #6F685D、红 #B5432B（封面封底的字另算）
     cols = collections.Counter()
     for p in range(2, iss.n):
+        if iss.roles.get(p) in ("divider", "contents"):   # 扉页和目录的字色跟着当期封面的颜色走，不在这里数
+            continue
         for c in iss.pdf.pages[p - 1].chars:
             col = c.get("non_stroking_color")
             cols["#%02X%02X%02X" % tuple(round(v * 255) for v in col) if isinstance(col, (tuple, list)) and len(col) == 3 else str(col)] += 1
@@ -1276,8 +1312,9 @@ def main():
     ap.add_argument("--out", help="报告路径（默认 <期目录>/检查报告.md）")
     ap.add_argument("--tail-lines", type=int, default=5, help="篇末页正文最少行数（默认 5）")
     ap.add_argument("--booklet", action="store_true", help="骑马钉：页数不是 4 的倍数算不通过")
+    ap.add_argument("--pdf", help="查哪一份 PDF（默认期目录里的 拾页-*.pdf；旁边要有同名 .html）")
     args = ap.parse_args()
-    iss = Issue(Path(args.issue_dir))
+    iss = Issue(Path(args.issue_dir), Path(args.pdf) if args.pdf else None)
     rep = Report()
     check_pages(iss, rep, args.booklet)
     check_fonts(iss, rep)

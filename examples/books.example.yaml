@@ -1,30 +1,20 @@
-# 示例书单（第 1 期用的三本公版书），可以直接 `python3 run.py prepare books.example.yaml` 试跑。
-# 每本书至少要有 title；能拿到全文的方式按优先级：
-#   file:          你自己的电子书，或抓书 MCP 返回后存下的文件（EPUB / PDF / TXT / MD / JSON / HTML），路径相对本文件
-#   url:           公版书全文链接
-#   gutenberg_id:  Project Gutenberg 编号
-#   （都不写时，按书名去 Gutendex 检索公版版本）
-# why_saved: 收藏时的线索（哪个帖子/视频提到的），AI 编辑挑篇时会参考。
+# 书单的样子。agent 按 rules/editor/booklist.md 写，放在工作目录里。
+# 每本书至少要有 title。file 不写时，prepare 会在 books/ 里按书名找同名的电子书。
+# why_saved：这本书是从哪条笔记来的，选篇和写导语时会用到。
 
 books:
-  - title: Walden
-    author: Henry David Thoreau
+  - title: 系统之美
+    original_title: Thinking in Systems
+    author: 德内拉·梅多斯
+    translator: 邱昭良
+    year: 2008
+    file: books/系统之美.epub
+    rights: licensed          # owned 自己的书 / licensed 书库取的 / public_domain 公版
+    why_saved: 示例：收藏的一期播客里，嘉宾说做产品的人都该读它讲反馈回路的那一章。
+
+  - title: 瓦尔登湖
+    original_title: Walden
+    author: 亨利·戴维·梭罗
     year: 1854
-    gutenberg_id: 205
-    # 当前云端环境访问不了 gutenberg.org，这里用 GITenberg 在 GitHub 上的 Gutenberg 原文镜像
-    url: https://raw.githubusercontent.com/GITenberg/Walden-and-On-The-Duty-Of-Civil-Disobedience_205/master/205.txt
-    why_saved: 示例：一期讲"慢下来生活"的播客里，嘉宾说这本书改变了他对时间的看法。
-
-  - title: How to Live on 24 Hours a Day
-    author: Arnold Bennett
-    year: 1908
-    gutenberg_id: 2274
-    url: https://raw.githubusercontent.com/GITenberg/How-to-Live-on-24-Hours-a-Day_2274/master/2274.txt
-    why_saved: 示例：收藏的一条讲时间管理的帖子，说这本小书比现代效率书都好。
-
-  - title: Meditations
-    author: Marcus Aurelius
-    year: "c. 170–180"
-    gutenberg_id: 2680
-    url: https://raw.githubusercontent.com/GITenberg/Meditations_2680/master/2680.txt
-    why_saved: 示例：一个创业者访谈视频里，嘉宾说每天早上读几段。
+    rights: public_domain
+    why_saved: 示例：一条讲「慢下来」的帖子里引了它的一段话。

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""可选的来源适配器：把 Get笔记 最近的收藏批量存进 inbox/，省得 AI 一条条搬。
+"""连接器：把 Get笔记 最近的笔记和收藏存进 inbox/。平时由 run.py pull 调用。
 
   python3 adapters/getnote/pull.py --days 30 [--full] [--inbox inbox/]
 
@@ -26,7 +26,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--days", type=int, default=30)
     ap.add_argument("--full", action="store_true", help="逐条取原文")
-    ap.add_argument("--inbox", default=str(HERE.parents[1] / "inbox"))
+    ap.add_argument("--inbox", default="inbox")
     args = ap.parse_args()
     since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=args.days)
     items = getnote.list_items(since)
@@ -45,7 +45,7 @@ def main():
             row = normalize_item(raw, source="getnote")
             if row:
                 f.write(json.dumps(row, ensure_ascii=False) + "\n"); n += 1
-    print(f"✓ {n} 条 → {path}；接着跑 python3 run.py ingest {out}")
+    print(f"✓ {n} 条 → {path}")
 
 
 if __name__ == "__main__":

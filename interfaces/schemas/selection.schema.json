@@ -23,8 +23,9 @@
           "chapter": {"type": "integer", "description": "candidates.md 里方括号中的章节号"},
           "excerpt": {"type": "object", "required": ["from", "to"], "properties": {"from": {"type": "integer"}, "to": {"type": "integer"}}},
           "title": {"type": "string", "description": "杂志里的篇名，不填用章名"},
-          "context": {"type": "string", "maxLength": 600, "description": "引子，见 rules/editor/context.md"},
-          "intro": {"type": "string", "maxLength": 320, "description": "摘要，见 rules/editor/summary.md"},
+          "label": {"type": "string", "description": "「本期选读」下面的章节标签，原章名太长时给一个短的；不填按章名自动归成「第 N 章　章名」"},
+          "context": {"type": "string", "maxLength": 600, "description": "导语，见 rules/editor/context.md"},
+          "intro": {"type": "string", "maxLength": 320, "description": "「本期选读」说明，见 rules/editor/summary.md"},
           "notes": {
             "type": "array",
             "items": {"type": "object", "required": ["term", "note"],
